@@ -29,9 +29,10 @@
 # With --silent, no body is printed.
 #
 # "gh variable get NAME" prints the fixture of variable_fixture NAME, and fails
-# like gh without one. "gh variable set" and "gh secret set" succeed; they are
-# appended to $CALLS as their command line, and the get also when LOG_GETS is
-# set. The value of a secret on stdin is read and not recorded.
+# like gh without one; its flags --json, --jq and --template are not supported.
+# "gh variable set" and "gh secret set" succeed; they are appended to $CALLS as
+# their command line, and the get also when LOG_GETS is set. The value of a
+# secret on stdin, also of "--env-file -", is read and not recorded.
 # shellcheck source-path=SCRIPTDIR
 set -euo pipefail
 # shellcheck source=../fixtures.sh
@@ -48,6 +49,11 @@ readonly OK_STATUS=200
 readonly ONE_VALUE_OR_TEXT='. as $text | try fromjson catch $text'
 # The flags of gh variable and gh secret that take a value.
 readonly VALUE_FLAG_FORM='^(-o|--org|-R|--repo|-e|--env|-b|--body|-v|--visibility|-r|--repos|-a|--app|-f|--env-file)$'
+# The flags of gh variable get that format its output, alone or with their
+# value.
+readonly FORMAT_FLAG_FORM='^(--json|--jq|--template)(=.*)?$|^-[qt]'
+# The flag of gh secret set that names a file of secrets instead of stdin.
+readonly ENV_FILE_FLAG_FORM='^(-f|--env-file)$'
 
 # status_line STATUS MESSAGE: with -i, print the status line of the answer
 # and the end of its headers before it, like gh does.
@@ -298,10 +304,21 @@ command_name() {
   usage_error "no name"
 }
 
+# reject_format_flags ARG...: fail on the flags of gh variable get ARG... that
+# format its output.
+reject_format_flags() {
+  local arg
+  for arg; do
+    [[ ! $arg =~ $FORMAT_FLAG_FORM ]] || usage_error "unsupported flag $arg"
+  done
+}
+
 # variable_get ARG...: print the variable of gh variable get ARG..., or fail
 # like gh does without one.
 variable_get() {
   local name file
+  reject_format_flags "$@"
+  if [[ -n ${LOG_GETS-} ]]; then printf 'variable get %s\n' "$*" >>"$CALLS"; fi
   name=$(command_name "$@")
   file=$(fixture_file "$(variable_key "$name")")
   [[ -f $file ]] || {
@@ -314,25 +331,47 @@ variable_get() {
 # variable ACTION ARG...: answer gh variable get or set.
 variable() {
   local action=${1-}
-  shift
+  shift || true
   case $action in
-    get)
-      if [[ -n ${LOG_GETS-} ]]; then printf 'variable get %s\n' "$*" >>"$CALLS"; fi
-      variable_get "$@"
-      ;;
+    get) variable_get "$@" ;;
     set) printf 'variable set %s\n' "$*" >>"$CALLS" ;;
     *) usage_error "unsupported: variable $action" ;;
   esac
 }
 
 # secret ACTION ARG...: answer gh secret set, which, like gh, reads the value
-# from stdin without --body unless stdin is a terminal.
+# from stdin unless stdin is a terminal.
 secret() {
   local action=${1-}
-  shift
+  shift || true
   [[ $action == set ]] || usage_error "unsupported: secret $action"
   printf 'secret set %s\n' "$*" >>"$CALLS"
-  if ! has_body "$@" && [[ ! -t 0 ]]; then cat >/dev/null; fi
+  if reads_stdin "$@" && [[ ! -t 0 ]]; then cat >/dev/null; fi
+}
+
+# env_file ARG...: print the file that -f or --env-file of ARG... names; fails
+# without one.
+env_file() {
+  while (($#)); do
+    if [[ $1 =~ $ENV_FILE_FLAG_FORM ]]; then
+      printf '%s\n' "${2-}"
+      return 0
+    elif [[ $1 == --env-file=* ]]; then
+      printf '%s\n' "${1#*=}"
+      return 0
+    fi
+    shift
+  done
+  return 1
+}
+
+# reads_stdin ARG...: gh secret set ARG... reads the value from stdin: without
+# --body, and without --env-file or with "--env-file -".
+reads_stdin() {
+  local file
+  ! has_body "$@" || return 1
+  file=$(env_file "$@") || return 0
+  [[ $file == - ]]
 }
 
 # has_body ARG...: the arguments give the value with -b or --body.

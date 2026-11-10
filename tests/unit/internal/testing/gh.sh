@@ -239,4 +239,51 @@ run "gh stub: gh secret set --body needs no stdin" ok "$gh" -- secret set KEY --
 expect call "secret set KEY --body v"
 run "gh stub: other subcommands are a usage error" fail "$gh" -- variable delete X
 expect message "stub gh: unsupported: variable delete"
+run "gh stub: gh variable without a subcommand is a usage error" fail "$gh" -- variable
+expect message "stub gh: unsupported: variable"
+run "gh stub: gh secret without a subcommand is a usage error" fail "$gh" -- secret
+expect message "stub gh: unsupported: secret"
+finish
+
+setup
+variable_fixture value 1
+variable_fixture BOT_APP_ID 42
+run "gh stub: gh variable get rejects --json" fail "$gh" -- \
+  variable get --json value BOT_APP_ID
+expect message "stub gh: unsupported flag --json"
+expect stdout ''
+run "gh stub: gh variable get rejects --jq" fail "$gh" -- \
+  variable get BOT_APP_ID -q .value
+expect message "stub gh: unsupported flag -q"
+run "gh stub: gh variable get rejects --template" fail "$gh" -- \
+  variable get BOT_APP_ID '--template={{.value}}'
+expect message "stub gh: unsupported flag --template={{.value}}"
+finish
+
+# stdin_left BODY ARG...: gh ARG... with BODY on stdin, then print what gh
+# left of it.
+stdin_left() {
+  local body=$1
+  shift
+  printf '%s\n' "$body" | {
+    gh "$@"
+    cat
+  }
+}
+
+setup
+printf 'KEY=v\n' >"$work/secrets.env"
+run_lib "gh stub: gh secret set -f FILE does not read stdin" ok "" \
+  stdin_left rest secret set -f "$work/secrets.env" --org fy
+expect stdout rest
+expect call "secret set -f $work/secrets.env --org fy"
+run_lib "gh stub: gh secret set --env-file=FILE does not read stdin" ok "" \
+  stdin_left rest secret set --env-file="$work/secrets.env"
+expect stdout rest
+run_lib "gh stub: gh secret set -f - reads stdin" ok "" \
+  stdin_left KEY=v secret set -f -
+expect stdout ''
+run_lib "gh stub: gh secret set reads stdin without --body" ok "" \
+  stdin_left v secret set KEY
+expect stdout ''
 finish
