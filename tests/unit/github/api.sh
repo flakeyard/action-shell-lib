@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # Tests of github/api.sh: a missing resource is told from an error, and only
 # errors that may pass on their own are retried.
+# shellcheck disable=SC2154 # work comes from setup.
 
 lib=github/api.sh
 
@@ -163,3 +164,24 @@ done <<'CASES'
 -f|query=  mutation M { x }|
 -F|query=@query.graphql|
 CASES
+
+# requests_as_usual: a GET with two transient failures, a POST and the checks
+# of file_at and forms.sh behave as without the hostile environment.
+requests_as_usual() {
+  [[ $(api_get repos/o/r/thing) == '{"a":1}' ]] || return 1
+  api_request POST repos/o/r/statuses/aaa -f state=success >/dev/null || return 1
+  ! file_at a/../b aaa 2>/dev/null || return 1
+  is_repository_list '["o/r"]' && ! is_repository_list '["o/.."]'
+}
+
+setup
+fixture repos/o/r/thing '{"a":1}'
+transient_failures repos/o/r/thing 2
+mapfile -t hostile < <(hostile_environment "$work/ran")
+apply "${hostile[@]}" REPO=o/r
+run_lib "api: the environment cannot run code or change the requests" ok \
+  "github/contents.sh github/forms.sh" requests_as_usual
+expect sleeps "5 10"
+expect call "POST repos/o/r/statuses/aaa state=success"
+[[ -z $current || ! -e $work/ran ]] || report "the environment ran a command"
+finish
