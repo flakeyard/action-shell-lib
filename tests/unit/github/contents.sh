@@ -45,3 +45,15 @@ fixture "repos/o/r/contents/nix?ref=aaa" '[{"type":"file","name":"a.nix"}]'
 run_lib "contents: a directory is an error" fail "$lib" file_at nix aaa
 expect message "nix: not a file of at most 1 MB"
 finish
+
+# Paths with a segment that is empty, "." or ".."; a file of the normalized
+# path exists, so that only the check stops them.
+for name in a/../b ./b /b b/ a//b .. . ""; do
+  setup
+  apply REPO=o/r
+  file_fixture o/r b aaa "x"
+  run_lib "contents: the path '$name' is rejected" fail "$lib" file_at "$name" aaa
+  expect message "'$name' has an empty, '.' or '..' segment"
+  expect no-message "x"
+  finish
+done

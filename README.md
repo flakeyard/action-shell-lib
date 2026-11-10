@@ -109,8 +109,9 @@ Files of a repository at a commit, through the contents API. Sources
 - `file_at PATH REF`: prints the file `PATH` of the repository `REPO`, as
   `owner/repo`, at the commit `REF`; reads `REPO`. Every segment of `PATH`, and
   `REF`, is percent-encoded. Returns 0 on success, `NOT_FOUND` when the file
-  does not exist, and 1 on any other error, such as a directory or a file larger
-  than 1 MB, after printing it on stderr.
+  does not exist, and 1 on any other error, such as a directory, a file larger
+  than 1 MB or a `PATH` with an empty, `.` or `..` segment, which it does not
+  request, after printing it on stderr.
 
 ### `github/forms.sh`
 
