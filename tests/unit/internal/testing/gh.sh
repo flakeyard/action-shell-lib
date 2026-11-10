@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # Tests of internal/testing/bin/gh.
+# shellcheck disable=SC2154 # work comes from setup.
 
 gh=internal/testing/bin/gh
 
@@ -98,4 +99,95 @@ fixture "graphql?owner=o" '{"data":{}}'
 run "gh stub: --silent prints no body of a GraphQL answer" ok "$gh" -- \
   api --silent graphql -f owner=o
 expect stdout ''
+finish
+
+# send_body BODY ARG...: gh ARG... with BODY on stdin.
+send_body() {
+  local body=$1
+  shift
+  printf '%s' "$body" | gh "$@"
+}
+
+# status_of PATH: print the HTTP status of a GET of PATH, from the status line
+# that gh api -i prints also when the request fails, as a script reads it.
+status_of() {
+  local path=$1 response
+  response=$(gh api -i "$path" 2>/dev/null) || true
+  awk 'NR == 1 { print $2 }' <<<"$response"
+}
+
+setup
+printf '{\n  "a": [1, 2]\n}\n' >"$work/body.json"
+run "gh stub: --input FILE is recorded as compact JSON" ok "$gh" -- \
+  api --silent -X PUT repos/o/r/x --input "$work/body.json" -f b=c
+expect call 'PUT repos/o/r/x b=c --input={"a":[1,2]}'
+run "gh stub: --input makes the request a POST" ok "$gh" -- \
+  api repos/o/r/y --input "$work/body.json"
+expect call 'POST repos/o/r/y --input={"a":[1,2]}'
+finish
+
+setup
+run_lib "gh stub: --input - reads the body from stdin" ok "" \
+  send_body '{ "a": true }' api -X PATCH repos/o/r/x --input -
+expect call 'PATCH repos/o/r/x --input={"a":true}'
+run_lib "gh stub: a body that is not JSON is recorded as a string" ok "" \
+  send_body $'plain\ntext' api -X PATCH repos/o/r/z --input -
+expect call 'PATCH repos/o/r/z --input="plain\ntext\n"'
+finish
+
+setup
+fixture repos/o/r/thing '{"a":1}'
+run_lib "gh stub: -i prints the status line of an answer" ok "" status_of repos/o/r/thing
+expect stdout 200
+run_lib "gh stub: -i prints the status line of an error" ok "" status_of repos/o/r/other
+expect stdout 404
+run_lib "gh stub: -i prints the status line of a GraphQL error" ok "" status_of graphql
+expect stdout 200
+apply FAIL_ON="GET repos/o/r/thing 409"
+run_lib "gh stub: FAIL_ON fails a GET" ok "" status_of repos/o/r/thing
+expect stdout 409
+finish
+
+setup
+fixture repos/o/r/thing '{"a":1}'
+apply LOG_GETS=1
+run "gh stub: LOG_GETS records a GET" ok "$gh" -- api --paginate repos/o/r/thing
+expect call "GET repos/o/r/thing"
+finish
+
+setup
+apply MISSING_IS_EMPTY=1
+run "gh stub: MISSING_IS_EMPTY answers a GET without a fixture empty" ok "$gh" -- \
+  api repos/o/r/thing --jq .a
+expect stdout ''
+run_lib "gh stub: MISSING_IS_EMPTY answers it with HTTP 200" ok "" status_of repos/o/r/thing
+expect stdout 200
+finish
+
+setup
+variable_fixture BOT_APP_ID 42
+run "gh stub: gh variable get prints the fixture" ok "$gh" -- \
+  variable get --org fy BOT_APP_ID
+expect stdout 42
+expect no-calls
+run "gh stub: gh variable get fails without a fixture" fail "$gh" -- \
+  variable get OTHER --org fy
+expect message "variable OTHER was not found"
+apply LOG_GETS=1
+run "gh stub: LOG_GETS records gh variable get" ok "$gh" -- variable get BOT_APP_ID
+expect call "variable get BOT_APP_ID"
+finish
+
+setup
+run "gh stub: gh variable set is recorded" ok "$gh" -- \
+  variable set BOT_APP_ID --org fy --visibility all --body 42
+expect call "variable set BOT_APP_ID --org fy --visibility all --body 42"
+run_lib "gh stub: gh secret set is recorded without its value" ok "" \
+  send_body s3cret secret set KEY --repo fy/x --env release
+expect call "secret set KEY --repo fy/x --env release"
+expect no-call s3cret
+run "gh stub: gh secret set --body needs no stdin" ok "$gh" -- secret set KEY --body v
+expect call "secret set KEY --body v"
+run "gh stub: other subcommands are a usage error" fail "$gh" -- variable delete X
+expect message "stub gh: unsupported: variable delete"
 finish
