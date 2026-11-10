@@ -16,11 +16,13 @@ readonly REPOSITORY_FORM="^[A-Za-z0-9-]+/${REPOSITORY_NAME_FORM#^}"
 # shellcheck disable=SC2034 # read by the scripts that source this file
 readonly TOKEN_FORM='^[A-Za-z0-9_.-]+$'
 
-# is_repository_list JSON: JSON is an array of owner/repo.
+# is_repository_list JSON: JSON is an array of owner/repo. In jq, "$" also
+# matches before a final line break, so the form is anchored with \A and \z.
 is_repository_list() {
   local list=$1
   jq -e --arg form "$REPOSITORY_FORM" \
-    'type == "array" and all(.[]; type == "string" and test($form))' \
+    '("\\A" + ($form | ltrimstr("^") | rtrimstr("$")) + "\\z") as $whole
+    | type == "array" and all(.[]; type == "string" and test($whole))' \
     <<<"$list" >/dev/null 2>&1
 }
 

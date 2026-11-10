@@ -65,3 +65,10 @@ setup
 run_lib "forms: a list without the repository" fail "$lib" \
   lists_repository '["owner/repo-fork"]' owner/repo
 finish
+
+for list in '["owner/repo\n"]' '["x y\nowner/repo"]' '["owner/repo\nx y"]'; do
+  setup
+  run_lib "forms: a line break makes $list no list of owner/repo" fail "$lib" \
+    is_repository_list "$list"
+  finish
+done
