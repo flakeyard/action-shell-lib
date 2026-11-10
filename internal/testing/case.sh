@@ -13,8 +13,8 @@ TESTING_BIN=$(cd -- "${BASH_SOURCE[0]%/*}/bin" && pwd)
 # The PATH of the host, behind the stubs.
 HOST_PATH=$PATH
 readonly TESTING_BIN HOST_PATH
-# A name that apply exports.
-readonly VARIABLE_NAME_FORM='^[A-Z][A-Z0-9_]*='
+# A variable that apply gives, with any name that the environment can have.
+readonly VARIABLE_NAME_FORM='^[A-Za-z_][A-Za-z0-9_]*='
 
 # setup: a fresh directory for one test, with empty fixtures, calls, sleeps,
 # outputs and job summary, and env_vars that name them.
