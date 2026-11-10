@@ -66,6 +66,13 @@ zizmor, prettier, markdownlint, typos and `reuse lint`.
 are checked by a dispatched run of `test.yaml`. The design follows
 [FY-0034][fy-0034] and [FY-0030][fy-0030].
 
+Tests: `tests/run.sh` runs the unit tests in `tests/unit/`, which mirrors the
+modules, with the harness, fixtures and stubs of `gh`, `date` and `sleep` in
+`internal/testing/`; it needs only bash, coreutils, `grep`, `sed` and `jq`.
+`tests/ci/` holds the checks that a job of the CI runs on real runners after the
+action. CI runs the unit tests with the `bash` of the runner and the action on
+Linux and on the runners it rejects.
+
 ## Bootstrap
 
 Following [FY-0022][fy-0022], some checks of this repository are not released

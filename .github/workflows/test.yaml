@@ -1,5 +1,6 @@
-# CI of this repository: the action itself on the supported runners, where it
-# gives its directory, then workflow-check over all jobs.
+# CI of this repository: unit tests of the modules with the bash of the
+# runner, the action itself on the supported runners, where it gives its
+# directory, then workflow-check over all jobs.
 name: test
 
 on:
@@ -21,6 +22,18 @@ concurrency:
         && github.event.action != 'edited' }}
 
 jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: tests/run.sh
+
   action:
     name: Action
     strategy:
@@ -42,7 +55,7 @@ jobs:
         run: tests/ci/action.sh
 
   check:
-    needs: [action]
+    needs: [unit, action]
     # Dispatched runs post their final status on every outcome.
     if: ${{ !cancelled() || github.event_name == 'workflow_dispatch' }}
     uses: flakeyard/workflow-check/.github/workflows/check.yaml@0a6da024486758d1f58cccd277e3a18021f3fb0c # v0.1.2

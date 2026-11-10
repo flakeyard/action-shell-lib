@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Stub of sleep for tests; not public API of the library (ADR-0001). It
+# returns at once and appends its arguments to $SLEEPS, one call per line.
+set -euo pipefail
+printf '%s\n' "$*" >>"${SLEEPS:?}"
