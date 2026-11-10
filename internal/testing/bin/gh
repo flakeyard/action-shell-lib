@@ -6,10 +6,12 @@
 # its path; with --paginate, FILE.2, FILE.3 and so on are further pages. A
 # missing file is HTTP 404, or an empty answer when MISSING_IS_EMPTY is set,
 # and a file that contains "HTTP 500" is a server error. Like gh, an error
-# prints its body on stdout and its message on stderr, and -i prints the status
-# line first. While FILE.transient holds a count above zero, each request takes
-# one from it and fails with the kind of failure written after the count. A GET
-# is appended to $CALLS, as below, only when LOG_GETS is set.
+# prints its body on stdout and its message on stderr. With -i, the status line
+# and the empty line that ends the headers come first, for each page, also of an
+# error and also with --silent. While FILE.transient holds a count above zero,
+# each request takes one from it and fails with the kind of failure written
+# after the count. A GET is appended to $CALLS, as below, only when LOG_GETS is
+# set.
 #
 # A GraphQL request, "api graphql", is appended to $CALLS as "graphql" and its
 # fields other than query, and answered in the same way from the file of
@@ -48,10 +50,16 @@ readonly ONE_VALUE_OR_TEXT='. as $text | try fromjson catch $text'
 readonly VALUE_FLAG_FORM='^(-o|--org|-R|--repo|-e|--env|-b|--body|-v|--visibility|-r|--repos|-a|--app|-f|--env-file)$'
 
 # status_line STATUS MESSAGE: with -i, print the status line of the answer
-# before it, like gh does.
+# and the end of its headers before it, like gh does.
 status_line() {
   local status=$1 message=$2
-  if $include; then printf 'HTTP/2.0 %s %s\r\n\r\n' "$status" "$message"; fi
+  if $include; then printf 'HTTP/2.0 %s %s\n\r\n' "$status" "$message" >&"$headers"; fi
+}
+
+# page_break: with -i, separate a page from the headers of the next one, like
+# gh does.
+page_break() {
+  if $include; then printf '\n' >&"$headers"; fi
 }
 
 # fail STATUS [MESSAGE]: fail like gh does on an HTTP error.
@@ -88,6 +96,15 @@ failure_status() {
   return 1
 }
 
+# graphql_errors FILE: fail like gh does on an answer with GraphQL errors.
+graphql_errors() {
+  local file=$1
+  status_line "$OK_STATUS" OK
+  cat -- "$file"
+  printf 'gh: GraphQL error\n' >&2
+  exit 1
+}
+
 # fail_transiently FILE: fail while the count of FILE.transient lasts.
 fail_transiently() {
   local file=$1 count kind
@@ -101,17 +118,21 @@ fail_transiently() {
   esac
 }
 
-# answer FILE: print FILE and, with --paginate, its further pages, through
-# --jq when given.
-answer() {
-  local file=$1 page=2 pages=("$1")
+# print_page FILE: print one page of an answer, through --jq when given.
+print_page() {
+  local file=$1
   status_line "$OK_STATUS" OK
+  if [[ -n $jq_filter ]]; then jq -r "$jq_filter" "$file"; else cat -- "$file"; fi
+}
+
+# answer FILE: print FILE and, with --paginate, its further pages.
+answer() {
+  local file=$1 page=2
+  print_page "$file"
   while $paginate && [[ -f $file.$page ]]; do
-    pages+=("$file.$page")
+    page_break
+    print_page "$file.$page"
     page=$((page + 1))
-  done
-  for page in "${pages[@]}"; do
-    if [[ -n $jq_filter ]]; then jq -r "$jq_filter" "$page"; else cat -- "$page"; fi
   done
 }
 
@@ -205,11 +226,7 @@ graphql() {
   file=$(fixture_file "$(graphql_key)")
   fail_transiently "$file"
   [[ -f $file ]] || graphql_error NOT_FOUND "Could not resolve to a node."
-  if grep -q '"errors"' "$file"; then
-    cat -- "$file"
-    printf 'gh: GraphQL error\n' >&2
-    exit 1
-  fi
+  ! grep -q '"errors"' "$file" || graphql_errors "$file"
   answer "$file"
 }
 
@@ -253,7 +270,9 @@ api() {
   method="" path="" jq_filter="" paginate=false silent=false include=false input="" fields=()
   parse "$@"
   take_input
-  # Like gh, --silent prints no body, also of an error; messages stay on stderr.
+  # Like gh, --silent prints no body, also of an error, but still the headers of
+  # -i; messages stay on stderr.
+  exec {headers}>&1
   if $silent; then exec >/dev/null; fi
   if [[ $path == "$GRAPHQL" ]]; then
     graphql

@@ -175,6 +175,28 @@ run_lib "gh stub: FAIL_ON fails a GET" ok "" status_of repos/o/r/thing
 expect stdout 409
 finish
 
+# The headers that gh api -i prints before an answer with HTTP 200, without
+# the headers themselves; written out here as an independent oracle.
+ok_headers=$'HTTP/2.0 200 OK\n\r\n'
+
+setup
+fixture "repos/o/r/items?per_page=100" '[1]'
+next_page "repos/o/r/items?per_page=100" 2 '[2]'
+run "gh stub: -i prints the headers of each page" ok "$gh" -- \
+  api -i --paginate "repos/o/r/items?per_page=100"
+expect stdout "${ok_headers}[1]"$'\n\n'"${ok_headers}[2]"
+run "gh stub: -i prints the headers also with --silent" ok "$gh" -- \
+  api -i --silent "repos/o/r/items?per_page=100"
+expect stdout $'HTTP/2.0 200 OK\n\r'
+run "gh stub: -i prints the headers of an error with --silent" fail "$gh" -- \
+  api -i --silent repos/o/r/other
+expect stdout $'HTTP/2.0 404 Not Found\n\r'
+fixture "graphql?owner=o" '{"data":null,"errors":[{"type":"FORBIDDEN"}]}'
+run "gh stub: -i prints the headers of an answer with GraphQL errors" fail "$gh" -- \
+  api -i graphql -f owner=o
+expect stdout "$ok_headers"'{"data":null,"errors":[{"type":"FORBIDDEN"}]}'
+finish
+
 setup
 fixture repos/o/r/thing '{"a":1}'
 apply LOG_GETS=1
