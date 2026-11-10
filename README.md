@@ -12,8 +12,8 @@ The repository checks itself with [`test.yaml`](.github/workflows/test.yaml),
 which calls [workflow-check][workflow-check] as its only job. The repository has
 no flake yet, so workflow-check builds no checks; it checks the pull request
 title, `renovate.json` and the release behind its preset tag, and reports
-`check / required`. Before a pull request, run actionlint, zizmor, prettier,
-markdownlint, typos and `reuse lint`.
+`check / required`. Before a pull request, run shellcheck, shfmt, actionlint,
+zizmor, prettier, markdownlint, typos and `reuse lint`.
 
 [`scorecard.yaml`](.github/workflows/scorecard.yaml) runs OpenSSF Scorecard with
 [workflow-scorecard][workflow-scorecard]. The repository releases itself with
@@ -27,8 +27,8 @@ are checked by a dispatched run of `test.yaml`. The design follows
 Following [FY-0022][fy-0022], some checks of this repository are not released
 yet. Until they are:
 
-- actionlint, zizmor, prettier, markdownlint, typos and REUSE run locally before
-  every pull request; the atoms will provide them.
+- shellcheck, shfmt, actionlint, zizmor, prettier, markdownlint, typos and REUSE
+  run locally before every pull request; the atoms will provide them.
 - The first release of this action runs on a workflow-release that does not use
   it yet; workflow-release and action-setup-nix adopt the library after that
   release ([FY-0035][fy-0035]).

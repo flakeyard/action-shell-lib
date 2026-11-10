@@ -90,21 +90,42 @@ A probe on 2026-11-07 tested how an action can expose its directory:
 ### Product
 
 action-shell-lib is a composite action whose one task is to expose its
-directory. It has no inputs and one output, `path`, set by its only step:
+directory. It has no inputs and one output, `path`. It has two steps: the path
+step, which runs on the runners the library supports and sets `path`, and the
+rejection step, which runs on every other runner and fails. A supported runner
+is a GitHub-hosted Linux runner on X64 or ARM64; the path step runs on exactly
+these, and the rejection step on exactly the rest:
 
 ```yaml
 - id: path
+  if: >-
+    ${{ runner.os == 'Linux' && runner.environment == 'github-hosted'
+        && (runner.arch == 'X64' || runner.arch == 'ARM64') }}
   shell: /usr/bin/bash --noprofile --norc -p -e {0}
   env:
     ACTION_DIR: ${{ github.action_path }}
   run: printf 'path=%s\n' "$ACTION_DIR" >>"$GITHUB_OUTPUT"
+- if: >-
+    ${{ !(runner.os == 'Linux' && runner.environment == 'github-hosted'
+          && (runner.arch == 'X64' || runner.arch == 'ARM64')) }}
+  shell: bash
+  run: |
+    echo "::error::Unsupported runner $RUNNER_OS/$RUNNER_ARCH" \
+      "($RUNNER_ENVIRONMENT): use a GitHub-hosted Linux runner on X64 or" \
+      "ARM64, such as ubuntu-24.04 or ubuntu-24.04-arm."
+    exit 1
 ```
+
+The rejection step uses the `bash` of the runner, since macOS and Windows
+runners have no `/usr/bin/bash`, and reads only `RUNNER_OS`, `RUNNER_ARCH` and
+`RUNNER_ENVIRONMENT`, which the runner sets. The text of the rejection lives in
+the library, so a consumer keeps no runner checks of its own: the library fails
+the job on an unsupported runner before any step that sources it.
 
 A consumer calls it with an `id`, pinned as
 `uses: flakeyard/action-shell-lib@<sha> # vX.Y.Z`, passes the output to its
 steps as the environment variable `SHELL_LIB` and sources the modules it needs
-from there. A consumer that runs on other operating systems rejects them before
-this step, with text of its own.
+from there.
 
 ### Modules
 
@@ -112,27 +133,34 @@ The library holds shell files that are sourced, and one that is run:
 
 - `report.sh`: workflow commands and the job summary. `escape_command` and
   `escape_property` escape messages (`%`, CR, LF) and properties (also `,` and
-  `:`); `error`, `warning` and `notice` write annotations; a cap of 10
-  annotations per kind and step, after which one annotation says how many more
-  the job summary has; `summary` and `code_span` for the job summary; `problem`
-  reports an error and goes on, `fail` reports it and exits.
-- `github/api.sh`: `api_request`, which retries server errors, HTTP 429, lost
-  connections and GraphQL `RATE_LIMITED` with a growing delay and a bounded
-  number of attempts, and returns `NOT_FOUND` for HTTP 404; `api_get` and the
-  other helpers that more than one consumer calls.
-- `github/contents.sh`: `file_at` and `root_files`, files of a repository at a
-  commit through the contents API.
-- `github/repository.sh`: `REPOSITORY_FORM`, `is_repository_list` and
-  `lists_repository`, names of repositories and lists of them as JSON.
-- `clock.sh`: the current date and the age of a timestamp, taken from `date`.
-- `run-step.sh`: runs one script of a consumer step in a clean environment (see
-  below).
+  `:`). `error`, `warning` and `notice`, each `MESSAGE [FILE [TITLE]]`, write
+  annotations with a cap of 10 per kind and step, the last of which says how
+  many more of that kind there are, as GitHub keeps at most 10 of each kind per
+  step ([action-flake-lock ADR-0002][afl-0002]); `flush [WHERE]` writes that
+  last annotation as the step ends. `problem` reports an error and goes on, and
+  `has_problems` tells whether it was called; `fail` reports an error, flushes
+  and exits. `summary` and `code_span` write the job summary.
+- `github/api.sh`: `NOT_FOUND`; `api_request METHOD PATH [ARG...]`, which
+  retries only requests that change nothing (GET, HEAD and GraphQL queries) and
+  only on server errors, HTTP 429, lost connections and GraphQL `RATE_LIMITED`,
+  with a growing delay and a bounded number of attempts, and returns `NOT_FOUND`
+  for HTTP 404; `api_get`.
+- `github/contents.sh`: `file_at`, a file of a repository at a commit through
+  the contents API.
+- `github/forms.sh`: `REPOSITORY_NAME_FORM`, `REPOSITORY_FORM` and `TOKEN_FORM`,
+  the forms of names of repositories and of tokens, and `is_repository_list` and
+  `lists_repository` for lists of repositories as JSON.
+- `env.sh`: `SYSTEM_PATH`, the tools of the runner, and `step_environment`,
+  which keeps the `PATH` of the job in `JOB_PATH` and sets `PATH`, `LC_ALL=C`
+  and `inherit_errexit` for the script of a step.
+- `run-step.sh STEP_DIR STEP [VARIABLE...]`: runs one script of a consumer step
+  in a clean environment (see below).
 - `internal/testing/`: the harness of test cases and checks, stubs of `gh`,
-  `nix` and `date`, with one fixture format for the `gh` stub, and helpers for
+  `date` and `sleep`, with one fixture format for the `gh` stub, and helpers for
   fixtures. It is not public API.
 
-The exact list of functions is settled when the copies above are merged; this
-record states the modules and the rules they follow.
+Names of functions, constants and variables that are not public API start with
+`_`. The README documents the exact list of public names.
 
 ### Rules of the API
 
@@ -154,8 +182,9 @@ record states the modules and the rules they follow.
 5. Text that others choose reaches workflow commands only through
    `escape_command` and `escape_property`, and `jq` only through `--arg` or
    `--argjson`.
-6. Time comes only from `date`; tests fix it with the `date` stub of
-   `internal/testing/`. No variable is read only to let tests change behaviour.
+6. No variable exists only to let tests change behaviour. Tests change time and
+   waiting through the stubs of `internal/testing/` on `PATH`: the delays of
+   retries with the `sleep` stub, the date with the `date` stub.
 
 ### run-step.sh
 
@@ -192,10 +221,13 @@ before 1.0 a 0.y release plays the role of a major one. `internal/testing/` is
 excluded. A major release of the library is not by itself a major release of a
 consumer: the consumer's own API decides that.
 
-Consumers pin the library once, in the `uses:` line of their `action.yml` or
-workflow. Their tests MAY fetch the library's source at that commit
-([FY-0003][fy-0003] as amended by [FY-0035][fy-0035]); this is not a second way
-to deliver it.
+Every `uses:` of the library in one repository names the same commit, in its
+`action.yml` or its workflows. The tests of a consumer MAY fetch the library's
+source at that commit and take the commit from the file that pins it, the
+`action.yml` or a workflow ([FY-0003][fy-0003] as amended by
+[FY-0035][fy-0035]); this is not a second way to deliver it. A repository that
+uses the library only in its tests pins it in the job of its CI workflow that
+runs those tests.
 
 ### Release order
 
@@ -220,7 +252,7 @@ reach only the commit they pin. Repositories that allowlist actions add
 `flakeyard/action-shell-lib`. The library makes no request that a consumer does
 not ask for, never reads or prints a token itself (`gh` takes it from the
 environment that the consumer sets), and writes to `$GITHUB_OUTPUT` only in its
-own step and never to `$GITHUB_ENV` or `$GITHUB_PATH`. `run-step.sh` does not
+path step and never to `$GITHUB_ENV` or `$GITHUB_PATH`. `run-step.sh` does not
 cover variables of the dynamic loader, such as `LD_PRELOAD`: the loader reads
 them when the first bash of the step starts, before the library.
 
@@ -229,20 +261,31 @@ them when the first bash of the step starts, before the library.
 This repository is checked by workflow-check. Until atom-shell is released it
 has no flake, `flake: ""`, and shellcheck and shfmt run locally; it does not add
 another copy of the Nix modules that [FY-0035][fy-0035] lets stay elsewhere.
-Every module has tests that use `internal/testing/` of this repository, and a
-job runs the action itself on `ubuntu-24.04` and `ubuntu-24.04-arm` and checks
-that `path` names a directory with `run-step.sh`.
+Every module has tests that use `internal/testing/` of this repository.
+`test.yaml` has, next to workflow-check, a job `unit` that runs `tests/run.sh`
+with the `bash` of the runner, and a job `action` that runs the action itself on
+`ubuntu-24.04` and `ubuntu-24.04-arm` and checks that `path` names a directory
+with `run-step.sh`. CI runs no jobs on macOS or Windows runners, by a rule of
+the owner, since such jobs of GitHub often wait for a runner or fail for reasons
+of their own; a static test of `action.yml` in `tests/run.sh` checks instead
+that the conditions of the two steps are exact complements and that the
+rejection step fails.
 
 ## Constraints
 
 ### Action
 
 - The action MUST have no inputs and exactly one output, `path`.
-- It MUST have exactly one step, with
-  `shell: /usr/bin/bash --noprofile --norc -p -e {0}`, which only writes
-  `path=<directory of the action>` to `$GITHUB_OUTPUT`.
-- `${{ github.action_path }}` MUST reach the step only through `env`, never
+- It MUST have exactly two steps. The path step MUST run only on GitHub-hosted
+  Linux runners on X64 or ARM64, with
+  `shell: /usr/bin/bash --noprofile --norc -p -e {0}`, and MUST only write
+  `path=<directory of the action>` to `$GITHUB_OUTPUT`. The rejection step MUST
+  run on exactly every other runner, with `shell: bash`, and MUST only write an
+  error annotation that names the runner and exit 1.
+- `${{ github.action_path }}` MUST reach the path step only through `env`, never
   inside `run:`.
+- The text of the rejection MUST live in the library; consumers MUST NOT keep
+  runner checks of their own.
 
 ### Contents
 
@@ -256,14 +299,15 @@ that `path` names a directory with `run-step.sh`.
 - A function MUST read and write only the variables its documentation names.
 - Messages of workflow commands MUST be escaped with `escape_command` and
   properties with `escape_property`.
-- `report.sh` MUST write at most 10 annotations of each kind per step, then one
-  that names how many more the job summary has.
+- `report.sh` MUST write at most 10 annotations of each kind per step, counting
+  the last one, which names how many more of that kind the job summary has.
 - `api_request` MUST retry only transient errors, a bounded number of times, and
   MUST return `NOT_FOUND` for HTTP 404.
 - Modules MUST run no tools other than bash builtins, coreutils, `grep`, `sed`,
   `gh` and `jq`, and MUST NOT install or build tools.
-- Modules MUST NOT read the time other than through `date`, and MUST NOT read a
-  variable that exists only for tests.
+- Modules MUST NOT read the time other than through `date`, MUST NOT wait other
+  than through `sleep`, and MUST NOT read a variable that exists only for tests.
+- Names that are not public API MUST start with `_`.
 
 ### Clean environment of steps
 
@@ -282,6 +326,10 @@ that `path` names a directory with `run-step.sh`.
   `path` MUST be a major release; before 1.0, a 0.y release.
 - `internal/testing/` MUST NOT be public API, and only tests MAY use it, fetched
   at the commit that the consumer pins.
+- Every `uses:` of the library in one repository MUST name the same commit.
+  Tests MUST take that commit from the file that pins it, the `action.yml` or a
+  workflow; a repository that uses the library only in tests MUST pin it in the
+  job of its CI workflow that runs them.
 - The library MUST support GitHub-hosted Linux runners on x86_64 and arm64 with
   `/usr/bin/bash` 5.2, and MUST NOT need features of a newer bash.
 
@@ -297,8 +345,12 @@ that `path` names a directory with `run-step.sh`.
 
 - Every module MUST have tests, and they MUST use `internal/testing/` of this
   repository.
+- CI MUST run `tests/run.sh` in a job `unit` with the `bash` of the runner.
 - CI MUST run the action on `ubuntu-24.04` and `ubuntu-24.04-arm` and check that
-  `path` is a directory that contains `run-step.sh`.
+  `path` is a directory that contains `run-step.sh`. It MUST NOT run jobs on
+  macOS or Windows runners; a static test of `action.yml` MUST check that the
+  conditions of the two steps are exact complements and that the rejection step
+  fails.
 - The repository MUST NOT add a copy of a Nix module that another repository
   has; its checks come from released atoms.
 
@@ -312,13 +364,15 @@ that `path` names a directory with `run-step.sh`.
   where a review of the consumer sees them.
 - (+) One harness and one fixture format for the `gh` stub serve every
   repository's tests.
+- (+) Consumers keep no runner checks of their own; the library gives the same
+  error on every unsupported runner.
 - (−) A compromised release of the library reaches every job that uses it,
   including the job with the key of the release bot; only the pins, the release
   gate and the release audit stand in the way.
 - (−) A change of the library needs a chain of releases before workflow-check
   and workflow-release carry it.
 - (−) Each consumer job spends one more step, and needs the library before any
-  step that sources it, so text for non-Linux runners cannot come from it.
+  step that sources it.
 - (−) Until atom-shell is released, shellcheck and shfmt of this repository run
   only locally.
 - (±) A major release of the library does not force a major release of its
@@ -340,6 +394,8 @@ that `path` names a directory with `run-step.sh`.
 - **Doing nothing.** Leaves the copies above to diverge further, while only some
   of them escape annotation properties or retry rate limits.
 
+[afl-0002]:
+  https://github.com/flakeyard/action-flake-lock/blob/main/docs/adr/records/0002-end-of-life-of-nixpkgs.md
 [fy-0003]:
   https://github.com/flakeyard/decisions/blob/main/docs/adr/records/0003-repository-naming.md
 [fy-0022]:
