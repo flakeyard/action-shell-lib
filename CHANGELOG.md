@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/flakeyard/action-shell-lib/compare/v0.1.2...v0.1.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* let the gh stub serve the tests of the organization scripts ([#19](https://github.com/flakeyard/action-shell-lib/issues/19)) ([87c709a](https://github.com/flakeyard/action-shell-lib/commit/87c709a5c41e4ac917c51e24f5cc904b77501334))
+* share the static tests of workflows in internal/testing ([#18](https://github.com/flakeyard/action-shell-lib/issues/18)) ([b247190](https://github.com/flakeyard/action-shell-lib/commit/b24719013c88f868ea5b5b05e6b84a8b51df0537))
+
 ## [0.1.2](https://github.com/flakeyard/action-shell-lib/compare/v0.1.1...v0.1.2) (2026-11-10)
 
 
