@@ -137,11 +137,12 @@ The library holds shell files that are sourced, and one that is run:
   annotations with a cap of 10 per kind and step, the last of which says how
   many more of that kind there are, as GitHub keeps at most 10 of each kind per
   step ([action-flake-lock ADR-0002][afl-0002]); `flush [WHERE]` writes that
-  last annotation as the step ends. `problem` reports an error, goes on and sets
-  `problems`; `fail` reports an error, flushes and exits. `summary` and
-  `code_span` write the job summary.
+  last annotation as the step ends. `problem` reports an error and goes on, and
+  `has_problems` tells whether it was called; `fail` reports an error, flushes
+  and exits. `summary` and `code_span` write the job summary.
 - `github/api.sh`: `NOT_FOUND`; `api_request METHOD PATH [ARG...]`, which
-  retries server errors, HTTP 429, lost connections and GraphQL `RATE_LIMITED`
+  retries only requests that change nothing (GET, HEAD and GraphQL queries) and
+  only on server errors, HTTP 429, lost connections and GraphQL `RATE_LIMITED`,
   with a growing delay and a bounded number of attempts, and returns `NOT_FOUND`
   for HTTP 404; `api_get`.
 - `github/contents.sh`: `file_at`, a file of a repository at a commit through
