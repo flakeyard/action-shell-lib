@@ -50,6 +50,39 @@ and `jq` from the `PATH` of the calling step.
 Functions and variables whose names start with `_`, and everything under
 `internal/`, are not public API: a release may change them without notice.
 
+### `report.sh`
+
+Workflow commands and the job summary of a step. Every message is escaped with
+`escape_command` and every property with `escape_property`, so text that others
+choose cannot end a workflow command and start another. GitHub keeps at most 10
+annotations of each kind per step, so a step writes at most 10 of each kind: the
+first 9 at once, and the 10th at `flush`, which writes it when it is the last of
+its kind and otherwise one that says how many more there are. The counts are
+kept in variables that start with `_report_`.
+
+- `ANNOTATIONS_PER_KIND`: `10`, the annotations of each kind that a step writes,
+  the last one included.
+- `escape_command TEXT`: prints `TEXT` as the message of one workflow command,
+  with `%`, CR and LF escaped. Returns 0.
+- `escape_property TEXT`: prints `TEXT` as a property of one workflow command,
+  such as a file or a title: also `,` and `:` escaped. Returns 0.
+- `error MESSAGE [FILE [TITLE]]`, `warning MESSAGE [FILE [TITLE]]` and
+  `notice MESSAGE [FILE [TITLE]]`: write an annotation of that kind, about
+  `FILE` and with `TITLE` when they are not empty, within
+  `ANNOTATIONS_PER_KIND`. Return 0.
+- `problem MESSAGE [FILE [TITLE]]`: `error`, then sets `problems` to `1`, so
+  that the step can fail at its end. Returns 0.
+- `flush [WHERE]`: for each kind that reached `ANNOTATIONS_PER_KIND`, writes the
+  held annotation or one that says how many more there are and `WHERE` they are
+  listed, such as `the job summary lists them`; once per kind. A step that may
+  write 10 annotations of a kind calls it as it ends. Returns 0.
+- `fail MESSAGE [FILE [TITLE]]`: `error`, then `flush`, then exits 1.
+- `summary TEXT...`: appends the arguments, joined by spaces, as one line to the
+  file `GITHUB_STEP_SUMMARY`, or to nothing when it is not set. Returns 0.
+- `code_span TEXT`: prints `TEXT` as inline code of the job summary, which stays
+  one line and one table cell and renders as no link or markup: line breaks
+  become spaces, `` ` `` becomes `'` and `|` is escaped. Returns 0.
+
 ## Development
 
 The repository checks itself with [`test.yaml`](.github/workflows/test.yaml),
