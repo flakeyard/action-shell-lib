@@ -21,8 +21,10 @@
 # STATUS, 502 by default; a GET in FAIL_ON fails too. The body of --input FILE,
 # or of stdin for "-", is one more field, "--input=" and the body as compact
 # JSON when it is exactly one JSON value, and its bytes as a JSON string
-# otherwise; a FILE that cannot be read fails as in gh. With --silent, no body
-# is printed.
+# otherwise; a FILE that cannot be read fails as in gh. As in gh, the fields of
+# a request with --input are its query string instead, "PATH?NAME=VALUE&...",
+# here in the order given and not escaped. A GraphQL request takes no --input.
+# With --silent, no body is printed.
 #
 # "gh variable get NAME" prints the fixture of variable_fixture NAME, and fails
 # like gh without one. "gh variable set" and "gh secret set" succeed; they are
@@ -150,6 +152,22 @@ input_field() {
   printf -- '--input=%s\n' "$(jq -c "$ONE_VALUE_OR_TEXT" <<<"$text")"
 }
 
+# query_path: the path with the fields as its query string.
+query_path() {
+  local separator='?' IFS='&'
+  [[ $path != *'?'* ]] || separator='&'
+  printf '%s%s%s\n' "$path" "$separator" "${fields[*]}"
+}
+
+# take_input: with --input, move the fields into the query string of the
+# path, as gh does, and record the body as the only field.
+take_input() {
+  [[ -n $input ]] || return 0
+  [[ $path != "$GRAPHQL" ]] || usage_error "unsupported: graphql --input"
+  if ((${#fields[@]})); then path=$(query_path); fi
+  fields=("$(input_field)")
+}
+
 # record: append the request to $CALLS as "METHOD PATH FIELDS".
 record() {
   printf '%s %s %s\n' "$method" "$path" "${fields[*]}" >>"$CALLS"
@@ -234,7 +252,7 @@ get() {
 api() {
   method="" path="" jq_filter="" paginate=false silent=false include=false input="" fields=()
   parse "$@"
-  if [[ -n $input ]]; then fields+=("$(input_field)"); fi
+  take_input
   # Like gh, --silent prints no body, also of an error; messages stay on stderr.
   if $silent; then exec >/dev/null; fi
   if [[ $path == "$GRAPHQL" ]]; then

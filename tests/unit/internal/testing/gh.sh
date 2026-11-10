@@ -119,8 +119,18 @@ status_of() {
 setup
 printf '{\n  "a": [1, 2]\n}\n' >"$work/body.json"
 run "gh stub: --input FILE is recorded as compact JSON" ok "$gh" -- \
-  api --silent -X PUT repos/o/r/x --input "$work/body.json" -f b=c
-expect call 'PUT repos/o/r/x b=c --input={"a":[1,2]}'
+  api --silent -X PUT repos/o/r/x --input "$work/body.json"
+expect call 'PUT repos/o/r/x --input={"a":[1,2]}'
+run "gh stub: the fields of --input are the query string" ok "$gh" -- \
+  api -X PUT "repos/o/r/q?a=1" --input "$work/body.json" -f b=c -F d=2
+expect call 'PUT repos/o/r/q?a=1&b=c&d=2 --input={"a":[1,2]}'
+fixture "repos/o/r/q?b=c" '{"n":1}'
+run "gh stub: a GET with --input is answered for its query string" ok "$gh" -- \
+  api -X GET repos/o/r/q --input "$work/body.json" -f b=c
+expect stdout '{"n":1}'
+run "gh stub: a GraphQL request takes no --input" fail "$gh" -- \
+  api graphql --input "$work/body.json"
+expect message "stub gh: unsupported: graphql --input"
 run "gh stub: --input makes the request a POST" ok "$gh" -- \
   api repos/o/r/y --input "$work/body.json"
 expect call 'POST repos/o/r/y --input={"a":[1,2]}'
@@ -128,8 +138,8 @@ finish
 
 setup
 run_lib "gh stub: --input - reads the body from stdin" ok "" \
-  send_body '{ "a": true }' api -X PATCH repos/o/r/x --input -
-expect call 'PATCH repos/o/r/x --input={"a":true}'
+  send_body '{ "a": true }' api -X PATCH repos/o/r/x --input - -f b=c
+expect call 'PATCH repos/o/r/x?b=c --input={"a":true}'
 run_lib "gh stub: a body that is not JSON is recorded as a string" ok "" \
   send_body $'plain\ntext\n\n' api -X PATCH repos/o/r/z --input -
 expect call 'PATCH repos/o/r/z --input="plain\ntext\n\n"'
