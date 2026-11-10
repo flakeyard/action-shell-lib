@@ -99,9 +99,12 @@ the environment that the calling step sets.
   `i/o timeout`, `TLS handshake timeout` or `Client.Timeout exceeded`, a
   connection `reset by peer` or `refused`, an `unexpected EOF`, `no such host`
   and the GraphQL error `RATE_LIMITED`. Any other failure, such as a missing
-  token or a wrong command line, is not retried. Returns 0 on success,
-  `NOT_FOUND` for HTTP 404, and 1 on any other error, after printing it on
-  stderr.
+  token or a wrong command line, is not retried. Only requests that change
+  nothing are retried: `GET`, `HEAD`, and `POST graphql` with a field
+  `-f query=` or `-F query=` whose text is a query, starting with `{` or
+  `query`; any other request, such as a mutation, is tried once. Returns 0 on
+  success, `NOT_FOUND` for HTTP 404, and 1 on any other error, after printing it
+  on stderr.
 - `api_get PATH`: `api_request GET PATH`. Returns 0 on success and 1 on any
   error, also when the resource does not exist, after printing it on stderr.
 

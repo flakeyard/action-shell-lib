@@ -25,6 +25,13 @@ readonly _API_RETRY_DELAY=5
 readonly _API_TRANSIENT_ERROR='HTTP (5[0-9][0-9]|429)|i/o timeout|TLS handshake timeout|Client\.Timeout exceeded|connection reset by peer|connection refused|unexpected EOF|no such host'
 readonly _API_TRANSIENT_GRAPHQL_ERROR='"type": *"RATE_LIMITED"'
 readonly _API_NOT_FOUND_ERROR='HTTP 404'
+# Requests that change nothing, and so may be repeated: these methods, and a
+# GraphQL query, whose text starts with "{" or the keyword query; a mutation, or
+# a query that gh reads from a file (query=@FILE), is not repeated.
+readonly _API_IDEMPOTENT_METHOD='^(GET|HEAD)$'
+readonly _API_GRAPHQL='graphql'
+readonly _API_GRAPHQL_QUERY='^[[:space:]]*(\{|query([^A-Za-z0-9_]|$))'
+readonly _API_FIELD_FLAG='^-[fF]$'
 
 # _api_is_transient DIR: true when the failed request, with the error of gh
 # and the response body in DIR, may pass on its own.
@@ -34,11 +41,33 @@ _api_is_transient() {
     || grep -Eq "$_API_TRANSIENT_GRAPHQL_ERROR" "$dir/body"
 }
 
-# _api_should_retry STATUS ATTEMPT DIR: true when the attempt ATTEMPT, which
-# exited with STATUS and left its error and body in DIR, may be repeated.
+# _api_is_query ARG...: the fields ARG... of gh api, given with -f or -F,
+# have a query field whose text is a GraphQL query.
+_api_is_query() {
+  while (($# >= 2)); do
+    if [[ $1 =~ $_API_FIELD_FLAG && $2 == query=* ]]; then
+      [[ ${2#query=} =~ $_API_GRAPHQL_QUERY ]]
+      return
+    fi
+    shift
+  done
+  return 1
+}
+
+# _api_is_idempotent METHOD PATH [ARG...]: the request changes nothing.
+_api_is_idempotent() {
+  local method=$1 path=$2
+  shift 2
+  [[ $method =~ $_API_IDEMPOTENT_METHOD ]] && return 0
+  [[ $method == POST && $path == "$_API_GRAPHQL" ]] && _api_is_query "$@"
+}
+
+# _api_should_retry STATUS ATTEMPT ATTEMPTS DIR: true when the attempt
+# ATTEMPT of ATTEMPTS, which exited with STATUS and left its error and body in
+# DIR, may be repeated.
 _api_should_retry() {
-  local status=$1 attempt=$2 dir=$3
-  ((status != 0 && attempt < _API_ATTEMPTS)) || return 1
+  local status=$1 attempt=$2 attempts=$3 dir=$4
+  ((status != 0 && attempt < attempts)) || return 1
   _api_is_transient "$dir"
 }
 
@@ -59,15 +88,17 @@ _api_result() {
 # api_request METHOD PATH [ARG...]: run gh api -X METHOD PATH ARG... and print
 # the response body. Returns 0 on success, NOT_FOUND when the resource does not
 # exist and 1 on any other error, after printing it on stderr. Transient errors
-# are retried, _API_ATTEMPTS times in all.
+# of a request that changes nothing are retried, _API_ATTEMPTS times in all;
+# other requests are tried once.
 api_request() {
-  local method=$1 path=$2 tmp status attempt=1 delay=$_API_RETRY_DELAY result=0
+  local method=$1 path=$2 tmp status attempt=1 attempts=1 delay=$_API_RETRY_DELAY result=0
   shift 2
+  if _api_is_idempotent "$method" "$path" "$@"; then attempts=$_API_ATTEMPTS; fi
   tmp=$(mktemp -d)
   while :; do
     status=0
     gh api -X "$method" "$path" "$@" >"$tmp/body" 2>"$tmp/error" || status=$?
-    _api_should_retry "$status" "$attempt" "$tmp" || break
+    _api_should_retry "$status" "$attempt" "$attempts" "$tmp" || break
     sleep "$delay"
     attempt=$((attempt + 1)) delay=$((delay * 2))
   done

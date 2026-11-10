@@ -106,7 +106,7 @@ with_failing_gh() {
 # waits before each retry; none for a failure that does not pass on its own.
 while IFS='|' read -r message sleeps; do
   setup
-  run_lib "api: '$message' is tried ${sleeps:+again}${sleeps:-once}" fail "$lib" \
+  run_lib "api: '$message' is tried ${sleeps:+3 times}${sleeps:-once}" fail "$lib" \
     with_failing_gh "$message" api_request GET repos/o/r/thing
   expect message "$message"
   expect sleeps "$sleeps"
@@ -123,4 +123,43 @@ Get "https://api.github.com/x": read tcp 10.1.0.4:5000->140.82.112.6:443: read: 
 Get "https://api.github.com/x": dial tcp 140.82.112.6:443: connect: connection refused|5 10
 Get "https://api.github.com/x": unexpected EOF|5 10
 Get "https://api.github.com/x": dial tcp: lookup api.github.com: no such host|5 10
+CASES
+
+# Requests that fail with HTTP 502 each time: METHOD PATH|SLEEPS; only GET and
+# HEAD are retried.
+while IFS='|' read -r call sleeps; do
+  setup
+  apply FAIL_ON="$call"
+  read -r method path <<<"$call"
+  run_lib "api: $method is tried ${sleeps:+3 times}${sleeps:-once}" fail "$lib" \
+    api_request "$method" "$path"
+  expect message "HTTP 502"
+  expect sleeps "$sleeps"
+  finish
+done <<'CASES'
+HEAD repos/o/r/thing|5 10
+POST repos/o/r/statuses/aaa|
+PATCH repos/o/r/git/refs/tags/v1|
+PUT repos/o/r/thing|
+DELETE repos/o/r/thing|
+CASES
+
+# GraphQL requests that are rate limited each time: the query field as gh
+# takes it|SLEEPS; only a query whose text is a query is retried.
+while IFS='|' read -r flag field sleeps; do
+  setup
+  fixture "graphql?owner=o" '{"data":{}}'
+  transient_failures "graphql?owner=o" 3 rate-limited
+  run_lib "api: GraphQL $flag ${field:0:24} is tried ${sleeps:+3 times}${sleeps:-once}" fail \
+    "$lib" api_request POST graphql "$flag" "$field" -f owner=o
+  expect message "API rate limit exceeded"
+  expect sleeps "$sleeps"
+  finish
+done <<'CASES'
+-f|query={ viewer { login } }|5 10
+-f|query=  query Releases($owner: String!) { x }|5 10
+-F|query=query{x}|5 10
+-f|query=mutation { addStar(input: {}) { clientMutationId } }|
+-f|query=  mutation M { x }|
+-F|query=@query.graphql|
 CASES
