@@ -1,5 +1,5 @@
-# CI of this repository: workflow-check. The repository has no jobs of its
-# own yet, so check has no needs.
+# CI of this repository: the action itself on the supported runners, where it
+# gives its directory, then workflow-check over all jobs.
 name: test
 
 on:
@@ -21,7 +21,28 @@ concurrency:
         && github.event.action != 'edited' }}
 
 jobs:
+  action:
+    name: Action
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: lib
+        uses: $/
+      - env:
+          LIB_PATH: ${{ steps.lib.outputs.path }}
+        run: tests/ci/action.sh
+
   check:
+    needs: [action]
     # Dispatched runs post their final status on every outcome.
     if: ${{ !cancelled() || github.event_name == 'workflow_dispatch' }}
     uses: flakeyard/workflow-check/.github/workflows/check.yaml@0a6da024486758d1f58cccd277e3a18021f3fb0c # v0.1.2
