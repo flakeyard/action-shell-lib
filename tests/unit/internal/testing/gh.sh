@@ -211,6 +211,9 @@ run "gh stub: MISSING_IS_EMPTY answers a GET without a fixture empty" ok "$gh" -
 expect stdout ''
 run_lib "gh stub: MISSING_IS_EMPTY answers it with HTTP 200" ok "" status_of repos/o/r/thing
 expect stdout 200
+apply FAIL_ON="GET repos/o/r/thing 409"
+run "gh stub: FAIL_ON wins over MISSING_IS_EMPTY" fail "$gh" -- api repos/o/r/thing
+expect message "(HTTP 409)"
 finish
 
 setup
