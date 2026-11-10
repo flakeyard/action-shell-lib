@@ -50,6 +50,18 @@ file_fixture() {
     "{\"type\":\"file\",\"encoding\":\"base64\",\"content\":\"$encoded\"}"
 }
 
+# variable_key NAME: print the name of the fixture of the variable NAME.
+variable_key() {
+  local name=$1
+  printf 'variables/%s\n' "$name"
+}
+
+# variable_fixture NAME VALUE: answer gh variable get NAME with VALUE.
+variable_fixture() {
+  local name=$1 value=$2
+  fixture "$(variable_key "$name")" "$value"
+}
+
 # fixed_time TIME: the time that the date stub takes as now, such as
 # 2026-11-10T12:00:00Z.
 fixed_time() {
