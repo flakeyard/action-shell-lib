@@ -236,7 +236,11 @@ source at that commit and take the commit from the file that pins it, the
 `action.yml` or a workflow ([FY-0003][fy-0003] as amended by
 [FY-0035][fy-0035]); this is not a second way to deliver it. A repository that
 uses the library only in its tests pins it in the job of its CI workflow that
-runs those tests.
+runs those tests. When no job of its own runs them, since they run in the flake
+check of workflow-check, it pins the library in a job of its own in the same
+workflow, which only calls the library and which the `check` job needs, as
+workflow-scorecard and renovate-config do: its tests take the commit from that
+step, and a failure of the library still fails the run.
 
 ### Release order
 
@@ -340,7 +344,9 @@ the job and that the rejection step fails.
 - Every `uses:` of the library in one repository MUST name the same commit.
   Tests MUST take that commit from the file that pins it, the `action.yml` or a
   workflow; a repository that uses the library only in tests MUST pin it in the
-  job of its CI workflow that runs them.
+  job of its CI workflow that runs them, or, when they run in the flake check of
+  workflow-check, in a job of its own in that workflow that the `check` job
+  needs.
 - The library MUST support GitHub-hosted Linux runners on x86_64 and arm64 with
   `/usr/bin/bash` 5.2, and MUST NOT need features of a newer bash.
 
