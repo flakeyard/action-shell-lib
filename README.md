@@ -18,6 +18,11 @@ steps:
       "$GITHUB_ACTION_PATH/scripts/step" check LOCK_PATH PATH
 ```
 
+A job that goes on after a failure or a cancellation, with a step on
+`if: always()`, gives the library step `if: always()` too; otherwise the library
+step is skipped and `path` is empty. The steps of the action run on every status
+of the job, so the action then gives `path` or rejects the runner.
+
 `scripts/step/check.sh` of the consumer then sources the modules it needs:
 
 ```bash
