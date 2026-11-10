@@ -99,14 +99,16 @@ these, and the rejection step on exactly the rest:
 ```yaml
 - id: path
   if: >-
-    ${{ runner.os == 'Linux' && runner.environment == 'github-hosted'
+    ${{ always() && runner.os == 'Linux'
+        && runner.environment == 'github-hosted'
         && (runner.arch == 'X64' || runner.arch == 'ARM64') }}
   shell: /usr/bin/bash --noprofile --norc -p -e {0}
   env:
     ACTION_DIR: ${{ github.action_path }}
   run: printf 'path=%s\n' "$ACTION_DIR" >>"$GITHUB_OUTPUT"
 - if: >-
-    ${{ !(runner.os == 'Linux' && runner.environment == 'github-hosted'
+    ${{ always() && !(runner.os == 'Linux'
+          && runner.environment == 'github-hosted'
           && (runner.arch == 'X64' || runner.arch == 'ARM64')) }}
   shell: bash
   run: |
@@ -115,6 +117,13 @@ these, and the rejection step on exactly the rest:
       "ARM64, such as ubuntu-24.04 or ubuntu-24.04-arm."
     exit 1
 ```
+
+Both conditions start with `always()`. A condition without a status function
+holds only while the job succeeds, so in a job that goes on after a failure or a
+cancellation, such as one that posts a commit status, both steps would be
+skipped and `path` would be empty. With `always()`, the action gives `path` or
+fails whenever it runs; a consumer step that runs on `always()` gives the
+library step `if: always()` too.
 
 The rejection step uses the `bash` of the runner, since macOS and Windows
 runners have no `/usr/bin/bash`, and reads only `RUNNER_OS`, `RUNNER_ARCH` and
@@ -268,8 +277,8 @@ with the `bash` of the runner, and a job `action` that runs the action itself on
 with `run-step.sh`. CI runs no jobs on macOS or Windows runners, by a rule of
 the owner, since such jobs of GitHub often wait for a runner or fail for reasons
 of their own; a static test of `action.yml` in `tests/run.sh` checks instead
-that the conditions of the two steps are exact complements and that the
-rejection step fails.
+that the conditions of the two steps are exact complements under every status of
+the job and that the rejection step fails.
 
 ## Constraints
 
@@ -282,6 +291,8 @@ rejection step fails.
   `path=<directory of the action>` to `$GITHUB_OUTPUT`. The rejection step MUST
   run on exactly every other runner, with `shell: bash`, and MUST only write an
   error annotation that names the runner and exit 1.
+- Both conditions MUST start with `always() &&`, so that one of the steps runs
+  whenever the action runs, also after a failure or a cancellation of the job.
 - `${{ github.action_path }}` MUST reach the path step only through `env`, never
   inside `run:`.
 - The text of the rejection MUST live in the library; consumers MUST NOT keep
@@ -349,8 +360,8 @@ rejection step fails.
 - CI MUST run the action on `ubuntu-24.04` and `ubuntu-24.04-arm` and check that
   `path` is a directory that contains `run-step.sh`. It MUST NOT run jobs on
   macOS or Windows runners; a static test of `action.yml` MUST check that the
-  conditions of the two steps are exact complements and that the rejection step
-  fails.
+  conditions of the two steps are exact complements under every status of the
+  job and that the rejection step fails.
 - The repository MUST NOT add a copy of a Nix module that another repository
   has; its checks come from released atoms.
 

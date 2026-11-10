@@ -10,21 +10,24 @@ outputs:
 # reads no BASH_ENV and imports no functions or shell options of the job.
 # The second step rejects every runner that the library does not support, with
 # the bash of the runner: macOS and Windows runners have no /usr/bin/bash
-# (ADR-0001). Its condition is the exact complement of the first one.
+# (ADR-0001). Its condition is the exact complement of the first one. Both
+# start with always(), so that the action gives path or fails whenever it runs,
+# also in a job that goes on after a failure or a cancellation; without it,
+# both conditions would hold only while the job succeeds.
 runs:
   using: composite
   steps:
     - id: path
       if: >-
-        runner.os == 'Linux' && runner.environment == 'github-hosted' &&
-        (runner.arch == 'X64' || runner.arch == 'ARM64')
+        always() && runner.os == 'Linux' && runner.environment ==
+        'github-hosted' && (runner.arch == 'X64' || runner.arch == 'ARM64')
       shell: /usr/bin/bash --noprofile --norc -p -e {0}
       env:
         ACTION_DIR: ${{ github.action_path }}
       run: printf 'path=%s\n' "$ACTION_DIR" >>"$GITHUB_OUTPUT"
     - if: >-
-        runner.os != 'Linux' || runner.environment != 'github-hosted' ||
-        (runner.arch != 'X64' && runner.arch != 'ARM64')
+        always() && (runner.os != 'Linux' || runner.environment !=
+        'github-hosted' || (runner.arch != 'X64' && runner.arch != 'ARM64'))
       shell: bash
       run: |
         echo "::error::Unsupported runner $RUNNER_OS/$RUNNER_ARCH" \
