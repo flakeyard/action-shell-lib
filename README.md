@@ -12,12 +12,20 @@ steps:
   - shell: /usr/bin/bash --noprofile --norc -p -e -o pipefail {0}
     env:
       SHELL_LIB: ${{ steps.shell-lib.outputs.path }}
-    run: /usr/bin/bash -p "$GITHUB_ACTION_PATH/scripts/check.sh"
+      LOCK_PATH: ${{ inputs.path }}
+    run: >-
+      /usr/bin/bash -p "$SHELL_LIB/run-step.sh"
+      "$GITHUB_ACTION_PATH/scripts/step" check LOCK_PATH PATH
 ```
+
+`scripts/step/check.sh` of the consumer then sources the modules it needs:
 
 ```bash
 # shellcheck source=/dev/null
+source "$SHELL_LIB/env.sh"
+# shellcheck source=/dev/null
 source "$SHELL_LIB/report.sh"
+step_environment
 ```
 
 Reference the action by full commit SHA, as above, and name the same commit in
@@ -136,6 +144,35 @@ Names and tokens of GitHub as actions read them from inputs and files.
 - `lists_repository LIST REPOSITORY`: returns 0 when the JSON array `LIST` has
   `REPOSITORY`, compared without case as GitHub does, and 1 otherwise. Prints
   nothing.
+
+### `env.sh`
+
+The environment of the script of a step.
+
+- `SYSTEM_PATH`: `/usr/sbin:/usr/bin:/sbin:/bin`, the tools of the runner.
+- `step_environment`: sets `JOB_PATH` to the `PATH` of the job, which earlier
+  steps can change, exports `PATH=$SYSTEM_PATH` and `LC_ALL=C`, and sets the
+  shell option `inherit_errexit`, so that `set -e` also holds in command
+  substitutions. Prints nothing; returns 0.
+
+### `run-step.sh`
+
+```sh
+/usr/bin/bash -p "$SHELL_LIB/run-step.sh" STEP_DIR STEP [VARIABLE...]
+```
+
+Runs `STEP_DIR/STEP.sh`, the script of one step of a consumer, with
+`/usr/bin/env -i` and `/usr/bin/bash -p`. The script gets only the variables
+`VARIABLE...` that are set, and `SHELL_LIB`; exported functions, `SHELLOPTS`,
+`BASHOPTS`, `PS4` and `BASH_ENV` set by earlier steps of the job do not reach
+it. Variables of the dynamic loader, such as `LD_PRELOAD`, are not covered: the
+loader reads them when the first `bash` of the step starts.
+
+Before it runs anything, it fails, with an error annotation and status 1, when
+`SHELL_LIB` or `STEP_DIR` is not absolute, has a `..` component or is not a
+directory, when `STEP` does not match `^[a-z-]+$` or when a `VARIABLE` is not a
+name. Otherwise its status is the status of the script. It runs only builtins
+and absolute paths, since `PATH` is still the job's.
 
 ## Development
 

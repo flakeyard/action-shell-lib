@@ -44,6 +44,7 @@ readonly RUN_SCRIPT=run-step.sh
 # second sourcing of a module.
 readonly GUARD_VARS=(
   ANNOTATIONS_PER_KIND=0 NOT_FOUND=0 REPOSITORY_NAME_FORM=. _CONTENTS_BAD_SEGMENT=.
+  SYSTEM_PATH=/x
 )
 
 # defines_functions MODULE: sourcing MODULE defines functions.
