@@ -86,3 +86,16 @@ setup
 run "gh stub: other commands are a usage error" fail "$gh" -- pr list
 expect message "stub gh: unsupported: pr list"
 finish
+
+setup
+run "gh stub: --silent prints no body of an error" fail "$gh" -- api --silent repos/o/r/thing
+expect stdout ''
+expect message "gh: Not Found (HTTP 404)"
+finish
+
+setup
+fixture "graphql?owner=o" '{"data":{}}'
+run "gh stub: --silent prints no body of a GraphQL answer" ok "$gh" -- \
+  api --silent graphql -f owner=o
+expect stdout ''
+finish

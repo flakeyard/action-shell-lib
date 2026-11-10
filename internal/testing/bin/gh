@@ -15,7 +15,7 @@
 #
 # Other methods are appended to $CALLS as "METHOD PATH FIELDS" and succeed,
 # unless "METHOD PATH [STATUS]" is a line of $FAIL_ON, which fails with HTTP
-# STATUS, 502 by default.
+# STATUS, 502 by default. With --silent, no body is printed.
 # shellcheck source-path=SCRIPTDIR
 set -euo pipefail
 # shellcheck source=../fixtures.sh
@@ -163,13 +163,15 @@ get() {
   fail_transiently "$file"
   [[ -f $file ]] || fail 404 "Not Found"
   ! grep -q 'HTTP 500' "$file" || fail 500 "Server Error"
-  if $silent; then answer "$file" >/dev/null; else answer "$file"; fi
+  answer "$file"
 }
 
 [[ ${1-} == api ]] || usage_error "unsupported: $*"
 shift
 method="" path="" jq_filter="" paginate=false silent=false fields=()
 parse "$@"
+# Like gh, --silent prints no body, also of an error; messages stay on stderr.
+if $silent; then exec >/dev/null; fi
 if [[ $path == "$GRAPHQL" ]]; then
   graphql
 elif [[ $method != GET ]]; then
