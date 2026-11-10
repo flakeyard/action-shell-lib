@@ -42,7 +42,7 @@ readonly RUN_SCRIPT=run-step.sh
 
 # Variables of the environment with the names of the constants that stop a
 # second sourcing of a module.
-readonly GUARD_VARS=(ANNOTATIONS_PER_KIND=0)
+readonly GUARD_VARS=(ANNOTATIONS_PER_KIND=0 NOT_FOUND=0 REPOSITORY_NAME_FORM=.)
 
 # defines_functions MODULE: sourcing MODULE defines functions.
 defines_functions() {

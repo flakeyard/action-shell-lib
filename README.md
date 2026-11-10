@@ -86,6 +86,49 @@ sourced, so the environment of the step cannot preset them.
   one line and one table cell and renders as no link or markup: line breaks
   become spaces, `` ` `` becomes `'` and `|` is escaped. Returns 0.
 
+### `github/api.sh`
+
+Calls of the GitHub API through the `gh` on `PATH`, which takes its token from
+the environment that the calling step sets.
+
+- `NOT_FOUND`: `3`, the status of `api_request` when the resource does not
+  exist.
+- `api_request METHOD PATH [ARG...]`: runs `gh api -X METHOD PATH ARG...` and
+  prints the response body. A server error, HTTP 429, a lost connection and the
+  GraphQL error `RATE_LIMITED` are retried, 3 attempts in all, after 5 and then
+  10 seconds. Returns 0 on success, `NOT_FOUND` for HTTP 404, and 1 on any other
+  error, after printing it on stderr.
+- `api_get PATH`: `api_request GET PATH`. Returns 0 on success and 1 on any
+  error, also when the resource does not exist, after printing it on stderr.
+
+### `github/contents.sh`
+
+Files of a repository at a commit, through the contents API. Sources
+`github/api.sh`.
+
+- `file_at PATH REF`: prints the file `PATH` of the repository `REPO`, as
+  `owner/repo`, at the commit `REF`; reads `REPO`. Every segment of `PATH`, and
+  `REF`, is percent-encoded. Returns 0 on success, `NOT_FOUND` when the file
+  does not exist, and 1 on any other error, such as a directory or a file larger
+  than 1 MB, after printing it on stderr.
+
+### `github/forms.sh`
+
+Names and tokens of GitHub as actions read them from inputs and files.
+
+- `REPOSITORY_NAME_FORM`: an extended regular expression for the name of a
+  repository; it needs a character other than a dot, since `.` or `..` would
+  change the path of an API call.
+- `REPOSITORY_FORM`: an extended regular expression for `owner/repo`, with the
+  name of `REPOSITORY_NAME_FORM`.
+- `TOKEN_FORM`: an extended regular expression for a token as GitHub issues
+  them.
+- `is_repository_list JSON`: returns 0 when `JSON` is an array of
+  `REPOSITORY_FORM` strings, and 1 otherwise. Prints nothing.
+- `lists_repository LIST REPOSITORY`: returns 0 when the JSON array `LIST` has
+  `REPOSITORY`, compared without case as GitHub does, and 1 otherwise. Prints
+  nothing.
+
 ## Development
 
 The repository checks itself with [`test.yaml`](.github/workflows/test.yaml),
