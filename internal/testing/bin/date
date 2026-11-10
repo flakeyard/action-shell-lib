@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Stub of date for tests; not public API of the library (ADR-0001). Without a
+# source of the date (-d, --date, -r, --reference, -f or --file), it prints the
+# time that fixed_time of fixtures.sh wrote, with the other arguments; it fails
+# when the test fixed no time. With one, it is the date of the system.
+# shellcheck source-path=SCRIPTDIR
+set -euo pipefail
+# shellcheck source=../fixtures.sh
+source "${BASH_SOURCE[0]%/*}/../fixtures.sh"
+
+# Arguments of date that give the time: a short option, after the flags -u
+# and -R, or a long one.
+readonly TIME_ARGUMENT_FORM='^(-[uR]*[dfr]|--(date|file|reference)(=|$))'
+
+# system_date: print the path of the next date on PATH after this stub.
+system_date() {
+  local self dir dirs
+  self=$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)
+  IFS=: read -ra dirs <<<"$PATH"
+  for dir in "${dirs[@]}"; do
+    if [[ $dir != "$self" && -x $dir/date ]]; then
+      printf '%s\n' "$dir/date"
+      return 0
+    fi
+  done
+  echo "stub date: no date on PATH" >&2
+  return 1
+}
+
+# gives_time ARG...: one of ARG gives the time.
+gives_time() {
+  local arg
+  for arg; do
+    [[ ! $arg =~ $TIME_ARGUMENT_FORM ]] || return 0
+  done
+  return 1
+}
+
+# fixed_now: print the time that the test fixed.
+fixed_now() {
+  local file
+  file=$(fixtures_dir)/now
+  [[ -f $file ]] || {
+    echo "stub date: the test fixed no time; call fixed_time" >&2
+    return 1
+  }
+  printf '%s\n' "$(<"$file")"
+}
+
+date=$(system_date)
+if gives_time "$@"; then
+  exec "$date" "$@"
+fi
+now=$(fixed_now)
+exec "$date" -d "$now" "$@"

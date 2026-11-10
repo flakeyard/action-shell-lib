@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# Stub of gh api for tests; not public API of the library (ADR-0001).
+#
+# A GET is answered from the file that fixture_file of fixtures.sh names for
+# its path; with --paginate, FILE.2, FILE.3 and so on are further pages. A
+# missing file is HTTP 404, and a file that contains "HTTP 500" is a server
+# error. Like gh, an error prints its body on stdout and its message on stderr.
+# While FILE.transient holds a count above zero, each request takes one from it
+# and fails with the kind of failure written after the count.
+#
+# A GraphQL request, "api graphql", is appended to $CALLS as "graphql" and its
+# fields other than query, and answered in the same way from the file of
+# "graphql?FIELDS"; a missing file is the GraphQL error NOT_FOUND, and a body
+# with "errors" fails as gh does.
+#
+# Other methods are appended to $CALLS as "METHOD PATH FIELDS" and succeed,
+# unless "METHOD PATH [STATUS]" is a line of $FAIL_ON, which fails with HTTP
+# STATUS, 502 by default. With --silent, no body is printed.
+# shellcheck source-path=SCRIPTDIR
+set -euo pipefail
+# shellcheck source=../fixtures.sh
+source "${BASH_SOURCE[0]%/*}/../fixtures.sh"
+
+readonly GRAPHQL=graphql
+# A line of FAIL_ON with a status: the call, a space and three digits.
+readonly FAIL_ON_STATUS_FORM='^(.*) ([0-9]{3})$'
+readonly DEFAULT_FAILURE_STATUS=502
+
+# fail STATUS [MESSAGE]: fail like gh does on an HTTP error.
+fail() {
+  local status=$1 message=${2:-Error}
+  printf '{"message":"%s","status":"%s"}\n' "$message" "$status"
+  printf 'gh: %s (HTTP %s)\n' "$message" "$status" >&2
+  exit 1
+}
+
+# graphql_error TYPE MESSAGE: fail like gh does on a GraphQL error.
+graphql_error() {
+  local type=$1 message=$2
+  printf '{"data":null,"errors":[{"type":"%s","message":"%s"}]}\n' "$type" "$message"
+  printf 'gh: %s\n' "$message" >&2
+  exit 1
+}
+
+# failure_status METHOD PATH: print the HTTP status that FAIL_ON gives the
+# call; fails when the call succeeds.
+failure_status() {
+  local call="$1 $2" line
+  while IFS= read -r line; do
+    if [[ $line == "$call" ]]; then
+      echo "$DEFAULT_FAILURE_STATUS"
+      return 0
+    elif [[ $line =~ $FAIL_ON_STATUS_FORM && ${BASH_REMATCH[1]} == "$call" ]]; then
+      echo "${BASH_REMATCH[2]}"
+      return 0
+    fi
+  done <<<"${FAIL_ON:-}"
+  return 1
+}
+
+# fail_transiently FILE: fail while the count of FILE.transient lasts.
+fail_transiently() {
+  local file=$1 count kind
+  [[ -f $file.transient ]] || return 0
+  read -r count kind <"$file.transient"
+  ((count > 0)) || return 0
+  printf '%s %s\n' $((count - 1)) "$kind" >"$file.transient"
+  case $kind in
+    rate-limited) graphql_error RATE_LIMITED "API rate limit exceeded" ;;
+    *) fail 504 "Gateway Timeout" ;;
+  esac
+}
+
+# answer FILE: print FILE and, with --paginate, its further pages, through
+# --jq when given.
+answer() {
+  local file=$1 page=2 pages=("$1")
+  while $paginate && [[ -f $file.$page ]]; do
+    pages+=("$file.$page")
+    page=$((page + 1))
+  done
+  for page in "${pages[@]}"; do
+    if [[ -n $jq_filter ]]; then jq -r "$jq_filter" "$page"; else cat -- "$page"; fi
+  done
+}
+
+# parse ARG...: the method, path, fields and flags of gh api ARG...
+parse() {
+  while (($#)); do
+    case $1 in
+      -X) method=$2 && shift ;;
+      --jq | -q) jq_filter=$2 && shift ;;
+      -f | -F) fields+=("$2") && shift ;;
+      --paginate) paginate=true ;;
+      --silent) silent=true ;;
+      -*) usage_error "unsupported flag $1" ;;
+      *) path=$1 ;;
+    esac
+    shift
+  done
+  [[ -n $method ]] || method=$(default_method)
+}
+
+# default_method: POST with fields, as gh does, and GET without.
+default_method() {
+  if ((${#fields[@]})); then echo POST; else echo GET; fi
+}
+
+# usage_error MESSAGE: exit as gh does on a wrong command line.
+usage_error() {
+  printf 'stub gh: %s\n' "$1" >&2
+  exit 2
+}
+
+# graphql_key: the name of the GraphQL request, from its fields.
+graphql_key() {
+  local field key=$GRAPHQL separator='?'
+  for field in "${fields[@]}"; do
+    [[ $field != query=* ]] || continue
+    key+=$separator$field separator='&'
+  done
+  printf '%s\n' "$key"
+}
+
+# graphql_fields: print the fields other than query, separated by spaces.
+graphql_fields() {
+  local key
+  key=$(graphql_key)
+  [[ $key == *'?'* ]] || return 0
+  key=${key#*'?'}
+  printf '%s\n' "${key//&/ }"
+}
+
+# graphql: answer a GraphQL request.
+graphql() {
+  local file
+  printf '%s %s\n' "$GRAPHQL" "$(graphql_fields)" >>"$CALLS"
+  file=$(fixture_file "$(graphql_key)")
+  fail_transiently "$file"
+  [[ -f $file ]] || graphql_error NOT_FOUND "Could not resolve to a node."
+  if grep -q '"errors"' "$file"; then
+    cat -- "$file"
+    printf 'gh: GraphQL error\n' >&2
+    exit 1
+  fi
+  answer "$file"
+}
+
+# change: record a request that changes something, and fail it if FAIL_ON
+# lists it.
+change() {
+  local status
+  printf '%s %s %s\n' "$method" "$path" "${fields[*]}" >>"$CALLS"
+  if status=$(failure_status "$method" "$path"); then
+    fail "$status"
+  fi
+}
+
+# get: answer a GET.
+get() {
+  local file
+  file=$(fixture_file "$path")
+  fail_transiently "$file"
+  [[ -f $file ]] || fail 404 "Not Found"
+  ! grep -q 'HTTP 500' "$file" || fail 500 "Server Error"
+  answer "$file"
+}
+
+[[ ${1-} == api ]] || usage_error "unsupported: $*"
+shift
+method="" path="" jq_filter="" paginate=false silent=false fields=()
+parse "$@"
+# Like gh, --silent prints no body, also of an error; messages stay on stderr.
+if $silent; then exec >/dev/null; fi
+if [[ $path == "$GRAPHQL" ]]; then
+  graphql
+elif [[ $method != GET ]]; then
+  change
+else
+  get
+fi
