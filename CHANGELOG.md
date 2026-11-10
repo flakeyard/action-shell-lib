@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/flakeyard/action-shell-lib/compare/v0.1.1...v0.1.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* give path or reject the runner also after a failure or cancellation ([#16](https://github.com/flakeyard/action-shell-lib/issues/16)) ([d1a6600](https://github.com/flakeyard/action-shell-lib/commit/d1a6600402f6eb64860075c4f82aea660f9e628a))
+
 ## [0.1.1](https://github.com/flakeyard/action-shell-lib/compare/v0.1.0...v0.1.1) (2026-11-10)
 
 
