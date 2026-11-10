@@ -131,8 +131,25 @@ run_lib "gh stub: --input - reads the body from stdin" ok "" \
   send_body '{ "a": true }' api -X PATCH repos/o/r/x --input -
 expect call 'PATCH repos/o/r/x --input={"a":true}'
 run_lib "gh stub: a body that is not JSON is recorded as a string" ok "" \
-  send_body $'plain\ntext' api -X PATCH repos/o/r/z --input -
-expect call 'PATCH repos/o/r/z --input="plain\ntext\n"'
+  send_body $'plain\ntext\n\n' api -X PATCH repos/o/r/z --input -
+expect call 'PATCH repos/o/r/z --input="plain\ntext\n\n"'
+finish
+
+setup
+run_lib "gh stub: JSON with more after it is recorded as one string" ok "" \
+  send_body '{"a":1} more' api -X PATCH repos/o/r/x --input -
+expect stdout ''
+expect call 'PATCH repos/o/r/x --input="{\"a\":1} more"'
+run_lib "gh stub: two JSON values are recorded as one string" ok "" \
+  send_body '1 2' api -X PATCH repos/o/r/y --input -
+expect call 'PATCH repos/o/r/y --input="1 2"'
+run "gh stub: an --input that cannot be read fails like gh" fail "$gh" -- \
+  api -X PUT repos/o/r/z --input "$work/missing.json"
+expect message "open $work/missing.json: no such file or directory"
+expect no-call 'repos/o/r/z'
+run_lib "gh stub: each body is one line of CALLS" ok "" cat -- "$work/calls"
+expect stdout 'PATCH repos/o/r/x --input="{\"a\":1} more"
+PATCH repos/o/r/y --input="1 2"'
 finish
 
 setup

@@ -20,8 +20,9 @@
 # unless "METHOD PATH [STATUS]" is a line of $FAIL_ON, which fails with HTTP
 # STATUS, 502 by default; a GET in FAIL_ON fails too. The body of --input FILE,
 # or of stdin for "-", is one more field, "--input=" and the body as compact
-# JSON, or as a JSON string when it is not JSON. With --silent, no body is
-# printed.
+# JSON when it is exactly one JSON value, and its bytes as a JSON string
+# otherwise; a FILE that cannot be read fails as in gh. With --silent, no body
+# is printed.
 #
 # "gh variable get NAME" prints the fixture of variable_fixture NAME, and fails
 # like gh without one. "gh variable set" and "gh secret set" succeed; they are
@@ -37,6 +38,10 @@ readonly GRAPHQL=graphql
 readonly FAIL_ON_STATUS_FORM='^(.*) ([0-9]{3})$'
 readonly DEFAULT_FAILURE_STATUS=502
 readonly OK_STATUS=200
+# A JSON string of text: the JSON value it holds when it is exactly one, and
+# the string otherwise.
+# shellcheck disable=SC2016 # jq, not expanded here
+readonly ONE_VALUE_OR_TEXT='. as $text | try fromjson catch $text'
 # The flags of gh variable and gh secret that take a value.
 readonly VALUE_FLAG_FORM='^(-o|--org|-R|--repo|-e|--env|-b|--body|-v|--visibility|-r|--repos|-a|--app|-f|--env-file)$'
 
@@ -132,11 +137,17 @@ default_method() {
   if ((${#fields[@]})) || [[ -n $input ]]; then echo POST; else echo GET; fi
 }
 
+# open_failure: fail like gh does on a file of --input that cannot be read.
+open_failure() {
+  printf 'open %s: no such file or directory\n' "$input" >&2
+  exit 1
+}
+
 # input_field: the body of --input as the field "--input=BODY".
 input_field() {
-  local body
-  body=$(cat -- "$input")
-  printf -- '--input=%s\n' "$(jq -c . <<<"$body" 2>/dev/null || jq -Rsc . <<<"$body")"
+  local text
+  text=$(cat -- "$input" 2>/dev/null | jq -Rs .) || open_failure
+  printf -- '--input=%s\n' "$(jq -c "$ONE_VALUE_OR_TEXT" <<<"$text")"
 }
 
 # record: append the request to $CALLS as "METHOD PATH FIELDS".
