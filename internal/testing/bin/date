@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Stub of date for tests; not public API of the library (ADR-0001). Without
-# -d or --date, it prints the time that fixed_time of fixtures.sh wrote, in the
-# format and zone asked for; it fails when the test fixed no time. With them,
-# it is the date of the system: the time is given.
+# Stub of date for tests; not public API of the library (ADR-0001). Without a
+# source of the date (-d, --date, -r, --reference, -f or --file), it prints the
+# time that fixed_time of fixtures.sh wrote, with the other arguments; it fails
+# when the test fixed no time. With one, it is the date of the system.
 # shellcheck source-path=SCRIPTDIR
 set -euo pipefail
 # shellcheck source=../fixtures.sh
 source "${BASH_SOURCE[0]%/*}/../fixtures.sh"
 
-# Arguments of date that give the time.
-readonly TIME_ARGUMENT_FORM='^(-d|--date)'
+# Arguments of date that give the time: a short option, after the flags -u
+# and -R, or a long one.
+readonly TIME_ARGUMENT_FORM='^(-[uR]*[dfr]|--(date|file|reference)(=|$))'
 
 # system_date: print the path of the next date on PATH after this stub.
 system_date() {
