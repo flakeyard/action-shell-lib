@@ -1,0 +1,27 @@
+name: Shell library
+description: >-
+  Gives the steps of a job the directory of the flakeyard shell library, whose
+  modules they source.
+outputs:
+  path:
+    description: Directory of the library.
+    value: ${{ steps.path.outputs.path }}
+# The path step runs the runner's /usr/bin/bash in privileged mode (-p), which
+# reads no BASH_ENV and imports no functions or shell options of the job.
+# macOS and Windows runners have no /usr/bin/bash: the second step rejects them
+# with the bash of the runner (ADR-0001).
+runs:
+  using: composite
+  steps:
+    - id: path
+      if: runner.os == 'Linux'
+      shell: /usr/bin/bash --noprofile --norc -p -e {0}
+      env:
+        ACTION_DIR: ${{ github.action_path }}
+      run: printf 'path=%s\n' "$ACTION_DIR" >>"$GITHUB_OUTPUT"
+    - if: runner.os != 'Linux'
+      shell: bash
+      run: |
+        echo "::error::Unsupported runner $RUNNER_OS: use a GitHub-hosted Linux" \
+          "runner, such as ubuntu-24.04 or ubuntu-24.04-arm."
+        exit 1
