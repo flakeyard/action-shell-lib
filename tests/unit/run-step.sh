@@ -102,3 +102,32 @@ step_setup
 run "run-step: needs a step" fail "$AS_ACTION" -- "$work/step"
 expect message "usage: run-step.sh STEP_DIR STEP [VARIABLE...]"
 finish
+
+# The internal names of the modules, and the state of report.sh, with values
+# that run a command when they are evaluated, in the environment of the job.
+# hostile_job_setup: step_setup with them in hostile_job.
+hostile_job_setup() {
+  step_setup
+  mapfile -t hostile_job < <(hostile_environment "$work/ran")
+  local kind
+  for kind in error warning notice; do
+    hostile_job+=("_report_count_$kind=a[\$(touch $work/ran)]" "_report_held_$kind=::$kind::forged")
+  done
+}
+
+hostile_job_setup
+run "run-step: a hostile environment does not stop the checks" fail "$AS_ACTION" \
+  "${hostile_job[@]}" -- "$work/step" ../step/ran
+expect message "::error::run-step.sh: invalid step name '../step/ran'."
+expect no-message "forged"
+expect no-message "STEP-RAN"
+[[ -z $current || ! -e $work/ran ]] || report "the environment ran a command"
+finish
+
+hostile_job_setup
+run "run-step: a hostile environment does not reach the step" ok "$AS_ACTION" \
+  "${hostile_job[@]}" -- "$work/step" probe
+expect no-message "_report_"
+expect no-message "_API_"
+[[ -z $current || ! -e $work/ran ]] || report "the environment ran a command"
+finish
