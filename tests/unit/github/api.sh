@@ -88,3 +88,39 @@ run_lib "api: another GraphQL error is not retried" fail "$lib" \
 expect message "Could not resolve"
 expect sleeps ""
 finish
+
+# with_failing_gh MESSAGE FUNCTION [ARG...]: run FUNCTION with a gh that
+# always fails with MESSAGE on stderr and no HTTP status.
+with_failing_gh() {
+  local message=$1
+  shift
+  # shellcheck disable=SC2329 # called by api_request
+  gh() {
+    printf '%s\n' "$message" >&2
+    return 1
+  }
+  "$@"
+}
+
+# Failures of gh without an HTTP status: MESSAGE|SLEEPS, where SLEEPS are the
+# waits before each retry; none for a failure that does not pass on its own.
+while IFS='|' read -r message sleeps; do
+  setup
+  run_lib "api: '$message' is tried ${sleeps:+again}${sleeps:-once}" fail "$lib" \
+    with_failing_gh "$message" api_request GET repos/o/r/thing
+  expect message "$message"
+  expect sleeps "$sleeps"
+  finish
+done <<'CASES'
+To get started with GitHub CLI, please run:  gh auth login|
+unknown flag: --bogus|
+bash: line 1: gh: command not found|
+gh: Could not resolve to a Repository with the name 'o/r'.|
+Get "https://api.github.com/x": dial tcp 140.82.112.6:443: i/o timeout|5 10
+Get "https://api.github.com/x": net/http: TLS handshake timeout|5 10
+Get "https://api.github.com/x": context deadline exceeded (Client.Timeout exceeded while awaiting headers)|5 10
+Get "https://api.github.com/x": read tcp 10.1.0.4:5000->140.82.112.6:443: read: connection reset by peer|5 10
+Get "https://api.github.com/x": dial tcp 140.82.112.6:443: connect: connection refused|5 10
+Get "https://api.github.com/x": unexpected EOF|5 10
+Get "https://api.github.com/x": dial tcp: lookup api.github.com: no such host|5 10
+CASES

@@ -13,22 +13,25 @@ readonly NOT_FOUND=3
 # seconds to wait before the second one, doubled before each next one.
 readonly _API_ATTEMPTS=3
 readonly _API_RETRY_DELAY=5
-# Errors of gh that may pass on their own: a server error, a rate limit or a
-# lost connection, and the GraphQL rate limit, which gh prints with HTTP 200.
-readonly _API_TRANSIENT_ERROR='HTTP (5[0-9][0-9]|429)|timeout|connection reset|unexpected EOF'
+# Errors of gh that may pass on their own; every other failure, such as a
+# missing token, a wrong command line or a GraphQL error, is not retried:
+# - HTTP 5xx: a server error; HTTP 429: too many requests;
+# - i/o timeout, TLS handshake timeout and Client.Timeout exceeded: the
+#   network or the server did not answer in time;
+# - connection reset by peer, connection refused and unexpected EOF: the
+#   connection broke or was not accepted, as while GitHub fails over;
+# - no such host: a failed DNS lookup, which runners see now and then;
+# - the GraphQL error RATE_LIMITED, which gh prints with HTTP 200.
+readonly _API_TRANSIENT_ERROR='HTTP (5[0-9][0-9]|429)|i/o timeout|TLS handshake timeout|Client\.Timeout exceeded|connection reset by peer|connection refused|unexpected EOF|no such host'
 readonly _API_TRANSIENT_GRAPHQL_ERROR='"type": *"RATE_LIMITED"'
-readonly _API_HTTP_STATUS='HTTP [0-9]'
-readonly _API_GRAPHQL_ERRORS='"errors"'
 readonly _API_NOT_FOUND_ERROR='HTTP 404'
 
 # _api_is_transient DIR: true when the failed request, with the error of gh
-# and the response body in DIR, may pass on its own: a transient error, or no
-# HTTP status and no GraphQL error at all.
+# and the response body in DIR, may pass on its own.
 _api_is_transient() {
   local dir=$1
-  grep -Eq "$_API_TRANSIENT_ERROR" "$dir/error" && return 0
-  grep -Eq "$_API_TRANSIENT_GRAPHQL_ERROR" "$dir/body" && return 0
-  ! grep -q "$_API_HTTP_STATUS" "$dir/error" && ! grep -q "$_API_GRAPHQL_ERRORS" "$dir/body"
+  grep -Eq "$_API_TRANSIENT_ERROR" "$dir/error" \
+    || grep -Eq "$_API_TRANSIENT_GRAPHQL_ERROR" "$dir/body"
 }
 
 # _api_should_retry STATUS ATTEMPT DIR: true when the attempt ATTEMPT, which
