@@ -7,7 +7,9 @@
 # GitHub keeps at most 10 annotations of each kind per step. The first 9 of a
 # kind are written at once; the 10th is held until flush, which writes it when
 # it is the last one of its kind, or else one that says how many more there
-# are. The counts live in variables that start with _report_.
+# are. The counts live in variables whose names this file chooses at random
+# when it is first sourced, so that the environment of the step, which earlier
+# steps of the job can set, cannot preset them.
 
 # Sourcing this file twice defines its read-only constants once. A variable of
 # the environment with the same name is not read-only, and the constant
@@ -17,6 +19,10 @@
 # The annotations of each kind that a step writes, the last one included.
 readonly ANNOTATIONS_PER_KIND=10
 readonly _REPORT_KINDS=(error warning notice)
+# The prefix of the names of the state of this file, unknown to the
+# environment, and the form of the counts in it.
+readonly _REPORT_STATE=_report_${SRANDOM}_
+readonly _REPORT_NUMBER='^[0-9]+$'
 
 # escape_command TEXT: print TEXT as the message of one workflow command.
 escape_command() {
@@ -47,16 +53,36 @@ _report_command() {
   printf '::%s%s::%s\n' "$kind" "${joined:+ $joined}" "$(escape_command "$message")"
 }
 
+# _report_get NAME: print the state NAME of this file, such as count_error;
+# empty until it is set.
+_report_get() {
+  local var=$_REPORT_STATE$1
+  printf '%s\n' "${!var-}"
+}
+
+# _report_set NAME VALUE: set the state NAME of this file to VALUE.
+_report_set() {
+  printf -v "$_REPORT_STATE$1" '%s' "$2"
+}
+
+# _report_count KIND: print the number of annotations of KIND so far.
+_report_count() {
+  local count
+  count=$(_report_get "count_$1")
+  [[ $count =~ $_REPORT_NUMBER ]] || count=0
+  printf '%s\n' "$count"
+}
+
 # _report_annotate KIND MESSAGE [FILE [TITLE]]: write or hold an annotation of
 # KIND, within ANNOTATIONS_PER_KIND.
 _report_annotate() {
-  local kind=$1 count_var=_report_count_$1 count
-  count=$((${!count_var:-0} + 1))
-  printf -v "$count_var" '%s' "$count"
+  local kind=$1 count
+  count=$(($(_report_count "$kind") + 1))
+  _report_set "count_$kind" "$count"
   if ((count < ANNOTATIONS_PER_KIND)); then
     _report_command "$@"
   elif ((count == ANNOTATIONS_PER_KIND)); then
-    printf -v "_report_held_$kind" '%s' "$(_report_command "$@")"
+    _report_set "held_$kind" "$(_report_command "$@")"
   fi
 }
 
@@ -70,24 +96,27 @@ warning() { _report_annotate warning "$@"; }
 # notice MESSAGE [FILE [TITLE]]: report a notice.
 notice() { _report_annotate notice "$@"; }
 
-# problem MESSAGE [FILE [TITLE]]: report an error, go on, and set problems to
-# 1, so that the step can fail at its end.
-# shellcheck disable=SC2034 # The scripts that source this file read problems.
+# problem MESSAGE [FILE [TITLE]]: report an error and go on; has_problems is
+# then true, so that the step can fail at its end.
 problem() {
   error "$@"
-  problems=1
+  _report_set problems 1
+}
+
+# has_problems: true when problem has reported an error.
+has_problems() {
+  [[ $(_report_get problems) == 1 ]]
 }
 
 # _report_flush_kind KIND [WHERE]: the last annotation of KIND, once.
 _report_flush_kind() {
-  local kind=$1 where=${2-} count_var=_report_count_$1 held_var=_report_held_$1
-  local flushed_var=_report_flushed_$1 more
-  more=$((${!count_var:-0} - ANNOTATIONS_PER_KIND + 1))
+  local kind=$1 where=${2-} more
+  more=$(($(_report_count "$kind") - ANNOTATIONS_PER_KIND + 1))
   ((more >= 1)) || return 0
-  [[ -z ${!flushed_var-} ]] || return 0
-  printf -v "$flushed_var" '%s' 1
+  [[ -z $(_report_get "flushed_$kind") ]] || return 0
+  _report_set "flushed_$kind" 1
   if ((more == 1)); then
-    printf '%s\n' "${!held_var}"
+    _report_get "held_$kind"
   else
     _report_command "$kind" "$more more ${kind}s are not shown here${where:+; $where}."
   fi

@@ -25,18 +25,6 @@ run_lib "report: a warning" ok "$lib" warning one
 expect stdout '::warning::one'
 finish
 
-# problem_is_counted: a problem goes on and sets problems.
-# shellcheck disable=SC2154 # problems is set by report.sh.
-problem_is_counted() {
-  problem one
-  ((problems == 1))
-}
-
-setup
-run_lib "report: a problem goes on and sets problems" ok "$lib" problem_is_counted
-expect stdout '::error::one'
-finish
-
 setup
 run_lib "report: a property ends at a comma or a colon" ok "$lib" \
   escape_property $'a,b:c%d\r\n::x'
@@ -140,4 +128,48 @@ finish
 setup
 run_lib "report: the summary gets one line" ok "$lib" summary '| a |' b
 expect summary '| a | b'
+finish
+
+# The state of report.sh as an earlier step of the job can preset it in the
+# environment: commands in arithmetic, and counts, held annotations and flags
+# that would hide or forge annotations. @work is the directory of the test.
+# shellcheck disable=SC2016 # code for the module, not expanded here
+readonly HOSTILE_STATE=(
+  '_report_count_error=a[$(touch @work/ran)]' '_report_count_warning=9'
+  '_report_count_notice=a[$(touch @work/ran)]'
+  '_report_held_error=::error::forged' '_report_held_warning=::warning::forged'
+  '_report_flushed_error=1' '_report_flushed_warning=1' 'problems=1'
+  '_REPORT_KINDS=a[$(touch @work/ran)]' '_REPORT_STATE=a[$(touch @work/ran)]'
+  'ANNOTATIONS_PER_KIND=a[$(touch @work/ran)]'
+)
+
+# eleven_of_each: eleven annotations of each kind, then flush; fails when a
+# problem was reported.
+eleven_of_each() {
+  ! has_problems || return 1
+  annotations error 11
+  annotations warning 11
+  annotations notice 11
+}
+
+setup
+apply "${HOSTILE_STATE[@]//@work/$work}"
+run_lib "report: the environment cannot run code, hide or forge annotations" ok \
+  "$lib" eleven_of_each
+expect errors 10
+expect warnings 10
+expect notices 10
+expect message "::warning::2 more warnings are not shown here."
+expect no-message "forged"
+[[ -z $current || ! -e $work/ran ]] || report "the environment ran a command"
+finish
+
+# problem_is_reported: has_problems is false until a problem, then true.
+problem_is_reported() {
+  ! has_problems && problem one && has_problems
+}
+
+setup
+run_lib "report: has_problems after a problem" ok "$lib" problem_is_reported
+expect stdout '::error::one'
 finish

@@ -58,7 +58,8 @@ choose cannot end a workflow command and start another. GitHub keeps at most 10
 annotations of each kind per step, so a step writes at most 10 of each kind: the
 first 9 at once, and the 10th at `flush`, which writes it when it is the last of
 its kind and otherwise one that says how many more there are. The counts are
-kept in variables that start with `_report_`.
+kept in variables whose names the module chooses at random when it is first
+sourced, so the environment of the step cannot preset them.
 
 - `ANNOTATIONS_PER_KIND`: `10`, the annotations of each kind that a step writes,
   the last one included.
@@ -70,8 +71,10 @@ kept in variables that start with `_report_`.
   `notice MESSAGE [FILE [TITLE]]`: write an annotation of that kind, about
   `FILE` and with `TITLE` when they are not empty, within
   `ANNOTATIONS_PER_KIND`. Return 0.
-- `problem MESSAGE [FILE [TITLE]]`: `error`, then sets `problems` to `1`, so
+- `problem MESSAGE [FILE [TITLE]]`: `error`; `has_problems` is then true, so
   that the step can fail at its end. Returns 0.
+- `has_problems`: returns 0 when `problem` has reported an error in this shell,
+  and 1 otherwise. Prints nothing.
 - `flush [WHERE]`: for each kind that reached `ANNOTATIONS_PER_KIND`, writes the
   held annotation or one that says how many more there are and `WHERE` they are
   listed, such as `the job summary lists them`; once per kind. A step that may
