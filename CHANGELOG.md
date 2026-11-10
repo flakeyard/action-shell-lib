@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/flakeyard/action-shell-lib/compare/v0.1.0...v0.1.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* retry more transient network errors in api_request ([#13](https://github.com/flakeyard/action-shell-lib/issues/13)) ([cd6d94c](https://github.com/flakeyard/action-shell-lib/commit/cd6d94c9ea83df96032d85e36fd7263f7d6d579b))
+* share the copy of the library and the static tests of consumers ([#12](https://github.com/flakeyard/action-shell-lib/issues/12)) ([ac80e14](https://github.com/flakeyard/action-shell-lib/commit/ac80e1423897cf37ef229141f70b90c35079f64c))
+
 ## 0.1.0 (2026-11-10)
 
 
