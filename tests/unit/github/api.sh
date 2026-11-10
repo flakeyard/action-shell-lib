@@ -123,8 +123,20 @@ Get "https://api.github.com/x": context deadline exceeded (Client.Timeout exceed
 Get "https://api.github.com/x": read tcp 10.1.0.4:5000->140.82.112.6:443: read: connection reset by peer|5 10
 Get "https://api.github.com/x": dial tcp 140.82.112.6:443: connect: connection refused|5 10
 Get "https://api.github.com/x": unexpected EOF|5 10
-Get "https://api.github.com/x": dial tcp: lookup api.github.com: no such host|5 10
+Get "https://api.github.com/x": dial tcp 140.82.112.6:443: connect: network is unreachable|5 10
+Get "https://api.github.com/x": http2: server sent GOAWAY and closed the connection; LastStreamID=1, ErrCode=NO_ERROR, debug=""|5 10
+Get "https://api.github.com/x": http2: Transport received GOAWAY from server ErrCode:PROTOCOL_ERROR|
 CASES
+
+# gh prints a failed DNS lookup in two lines of its own, without the error of
+# Go.
+setup
+run_lib "api: a failed DNS lookup is tried 3 times" fail "$lib" with_failing_gh \
+  $'error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com' \
+  api_request GET repos/o/r/thing
+expect message "error connecting to api.github.com"
+expect sleeps "5 10"
+finish
 
 # Requests that fail with HTTP 502 each time: METHOD PATH|SLEEPS; only GET and
 # HEAD are retried.
