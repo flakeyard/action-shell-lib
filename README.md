@@ -27,9 +27,9 @@ runner fetch it at that commit, which they read from the file that pins it.
 ## Runner requirements
 
 GitHub-hosted Linux runners on x86_64 or arm64, such as `ubuntu-24.04` and
-`ubuntu-24.04-arm`, with `/usr/bin/bash` 5.2 or later. On any other operating
-system the action writes an error that names the runner and fails the job, so
-that no later step sources the library there.
+`ubuntu-24.04-arm`, with `/usr/bin/bash` 5.2 or later. On any other runner,
+self-hosted ones included, the action writes an error that names the runner and
+fails the job, so that no later step sources the library there.
 
 ## API
 

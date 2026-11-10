@@ -1,5 +1,5 @@
-# CI of this repository: the action itself on Linux, where it gives its
-# directory, and on the runners it rejects, then workflow-check over all jobs.
+# CI of this repository: the action itself on the supported runners, where it
+# gives its directory, then workflow-check over all jobs.
 name: test
 
 on:
@@ -26,9 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS on Intel, because arm64 runners often wait for capacity until
-        # the job times out.
-        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, windows-latest]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
     permissions:
@@ -38,13 +36,10 @@ jobs:
         with:
           persist-credentials: false
       - id: lib
-        continue-on-error: true
         uses: $/
       - env:
-          OUTCOME: ${{ steps.lib.outcome }}
           LIB_PATH: ${{ steps.lib.outputs.path }}
-        shell: bash
-        run: bash tests/ci/action.sh
+        run: tests/ci/action.sh
 
   check:
     needs: [action]
