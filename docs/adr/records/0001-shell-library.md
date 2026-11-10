@@ -90,21 +90,35 @@ A probe on 2026-11-07 tested how an action can expose its directory:
 ### Product
 
 action-shell-lib is a composite action whose one task is to expose its
-directory. It has no inputs and one output, `path`, set by its only step:
+directory. It has no inputs and one output, `path`. It has two steps: the path
+step, which runs on Linux and sets `path`, and the rejection step, which runs on
+every other runner and fails:
 
 ```yaml
 - id: path
+  if: runner.os == 'Linux'
   shell: /usr/bin/bash --noprofile --norc -p -e {0}
   env:
     ACTION_DIR: ${{ github.action_path }}
   run: printf 'path=%s\n' "$ACTION_DIR" >>"$GITHUB_OUTPUT"
+- if: runner.os != 'Linux'
+  shell: bash
+  run: |
+    echo "::error::Unsupported runner $RUNNER_OS: use a GitHub-hosted Linux" \
+      "runner, such as ubuntu-24.04 or ubuntu-24.04-arm."
+    exit 1
 ```
+
+The rejection step uses the `bash` of the runner, since macOS and Windows
+runners have no `/usr/bin/bash`, and reads only `RUNNER_OS`, which the runner
+sets. The text of the rejection lives in the library, so a consumer does not
+reject runners other than Linux itself: the library fails the job there before
+any step that sources it.
 
 A consumer calls it with an `id`, pinned as
 `uses: flakeyard/action-shell-lib@<sha> # vX.Y.Z`, passes the output to its
 steps as the environment variable `SHELL_LIB` and sources the modules it needs
-from there. A consumer that runs on other operating systems rejects them before
-this step, with text of its own.
+from there.
 
 ### Modules
 
@@ -113,9 +127,11 @@ The library holds shell files that are sourced, and one that is run:
 - `report.sh`: workflow commands and the job summary. `escape_command` and
   `escape_property` escape messages (`%`, CR, LF) and properties (also `,` and
   `:`); `error`, `warning` and `notice` write annotations; a cap of 10
-  annotations per kind and step, after which one annotation says how many more
-  the job summary has; `summary` and `code_span` for the job summary; `problem`
-  reports an error and goes on, `fail` reports it and exits.
+  annotations per kind and step, the last of which says how many more of that
+  kind the job summary has, as GitHub keeps at most 10 of each kind per step
+  ([action-flake-lock ADR-0002][afl-0002]); `summary` and `code_span` for the
+  job summary; `problem` reports an error and goes on, `fail` reports it and
+  exits.
 - `github/api.sh`: `api_request`, which retries server errors, HTTP 429, lost
   connections and GraphQL `RATE_LIMITED` with a growing delay and a bounded
   number of attempts, and returns `NOT_FOUND` for HTTP 404; `api_get` and the
@@ -192,10 +208,13 @@ before 1.0 a 0.y release plays the role of a major one. `internal/testing/` is
 excluded. A major release of the library is not by itself a major release of a
 consumer: the consumer's own API decides that.
 
-Consumers pin the library once, in the `uses:` line of their `action.yml` or
-workflow. Their tests MAY fetch the library's source at that commit
-([FY-0003][fy-0003] as amended by [FY-0035][fy-0035]); this is not a second way
-to deliver it.
+Every `uses:` of the library in one repository names the same commit, in its
+`action.yml` or its workflows. The tests of a consumer MAY fetch the library's
+source at that commit and take the commit from the file that pins it, the
+`action.yml` or a workflow ([FY-0003][fy-0003] as amended by
+[FY-0035][fy-0035]); this is not a second way to deliver it. A repository that
+uses the library only in its tests pins it in the job of its CI workflow that
+runs those tests.
 
 ### Release order
 
@@ -220,7 +239,7 @@ reach only the commit they pin. Repositories that allowlist actions add
 `flakeyard/action-shell-lib`. The library makes no request that a consumer does
 not ask for, never reads or prints a token itself (`gh` takes it from the
 environment that the consumer sets), and writes to `$GITHUB_OUTPUT` only in its
-own step and never to `$GITHUB_ENV` or `$GITHUB_PATH`. `run-step.sh` does not
+path step and never to `$GITHUB_ENV` or `$GITHUB_PATH`. `run-step.sh` does not
 cover variables of the dynamic loader, such as `LD_PRELOAD`: the loader reads
 them when the first bash of the step starts, before the library.
 
@@ -229,20 +248,27 @@ them when the first bash of the step starts, before the library.
 This repository is checked by workflow-check. Until atom-shell is released it
 has no flake, `flake: ""`, and shellcheck and shfmt run locally; it does not add
 another copy of the Nix modules that [FY-0035][fy-0035] lets stay elsewhere.
-Every module has tests that use `internal/testing/` of this repository, and a
-job runs the action itself on `ubuntu-24.04` and `ubuntu-24.04-arm` and checks
-that `path` names a directory with `run-step.sh`.
+Every module has tests that use `internal/testing/` of this repository.
+`test.yaml` has, next to workflow-check, a job `unit` that runs `tests/run.sh`
+with the `bash` of the runner, and a job `action` that runs the action itself on
+`ubuntu-24.04` and `ubuntu-24.04-arm` and checks that `path` names a directory
+with `run-step.sh`.
 
 ## Constraints
 
 ### Action
 
 - The action MUST have no inputs and exactly one output, `path`.
-- It MUST have exactly one step, with
-  `shell: /usr/bin/bash --noprofile --norc -p -e {0}`, which only writes
-  `path=<directory of the action>` to `$GITHUB_OUTPUT`.
-- `${{ github.action_path }}` MUST reach the step only through `env`, never
+- It MUST have exactly two steps. The path step MUST run with
+  `if: runner.os == 'Linux'` and
+  `shell: /usr/bin/bash --noprofile --norc -p -e {0}`, and MUST only write
+  `path=<directory of the action>` to `$GITHUB_OUTPUT`. The rejection step MUST
+  run with `if: runner.os != 'Linux'` and `shell: bash`, MUST only write an
+  error annotation that names the runner and exit 1.
+- `${{ github.action_path }}` MUST reach the path step only through `env`, never
   inside `run:`.
+- The text of the rejection MUST live in the library; consumers MUST NOT reject
+  runners other than Linux themselves.
 
 ### Contents
 
@@ -256,8 +282,8 @@ that `path` names a directory with `run-step.sh`.
 - A function MUST read and write only the variables its documentation names.
 - Messages of workflow commands MUST be escaped with `escape_command` and
   properties with `escape_property`.
-- `report.sh` MUST write at most 10 annotations of each kind per step, then one
-  that names how many more the job summary has.
+- `report.sh` MUST write at most 10 annotations of each kind per step, counting
+  the last one, which names how many more of that kind the job summary has.
 - `api_request` MUST retry only transient errors, a bounded number of times, and
   MUST return `NOT_FOUND` for HTTP 404.
 - Modules MUST run no tools other than bash builtins, coreutils, `grep`, `sed`,
@@ -282,6 +308,10 @@ that `path` names a directory with `run-step.sh`.
   `path` MUST be a major release; before 1.0, a 0.y release.
 - `internal/testing/` MUST NOT be public API, and only tests MAY use it, fetched
   at the commit that the consumer pins.
+- Every `uses:` of the library in one repository MUST name the same commit.
+  Tests MUST take that commit from the file that pins it, the `action.yml` or a
+  workflow; a repository that uses the library only in tests MUST pin it in the
+  job of its CI workflow that runs them.
 - The library MUST support GitHub-hosted Linux runners on x86_64 and arm64 with
   `/usr/bin/bash` 5.2, and MUST NOT need features of a newer bash.
 
@@ -297,6 +327,7 @@ that `path` names a directory with `run-step.sh`.
 
 - Every module MUST have tests, and they MUST use `internal/testing/` of this
   repository.
+- CI MUST run `tests/run.sh` in a job `unit` with the `bash` of the runner.
 - CI MUST run the action on `ubuntu-24.04` and `ubuntu-24.04-arm` and check that
   `path` is a directory that contains `run-step.sh`.
 - The repository MUST NOT add a copy of a Nix module that another repository
@@ -312,13 +343,15 @@ that `path` names a directory with `run-step.sh`.
   where a review of the consumer sees them.
 - (+) One harness and one fixture format for the `gh` stub serve every
   repository's tests.
+- (+) Consumers do not carry their own rejection of runners other than Linux;
+  the library gives the same error everywhere.
 - (−) A compromised release of the library reaches every job that uses it,
   including the job with the key of the release bot; only the pins, the release
   gate and the release audit stand in the way.
 - (−) A change of the library needs a chain of releases before workflow-check
   and workflow-release carry it.
 - (−) Each consumer job spends one more step, and needs the library before any
-  step that sources it, so text for non-Linux runners cannot come from it.
+  step that sources it.
 - (−) Until atom-shell is released, shellcheck and shfmt of this repository run
   only locally.
 - (±) A major release of the library does not force a major release of its
@@ -340,6 +373,8 @@ that `path` names a directory with `run-step.sh`.
 - **Doing nothing.** Leaves the copies above to diverge further, while only some
   of them escape annotation properties or retry rate limits.
 
+[afl-0002]:
+  https://github.com/flakeyard/action-flake-lock/blob/main/docs/adr/records/0002-end-of-life-of-nixpkgs.md
 [fy-0003]:
   https://github.com/flakeyard/decisions/blob/main/docs/adr/records/0003-repository-naming.md
 [fy-0022]:
