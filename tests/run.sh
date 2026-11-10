@@ -18,6 +18,8 @@ source "$root/internal/testing/checks.sh"
 source "$root/internal/testing/fixtures.sh"
 # shellcheck source=../internal/testing/yaml.sh
 source "$root/internal/testing/yaml.sh"
+# shellcheck source=../internal/testing/workflow.sh
+source "$root/internal/testing/workflow.sh"
 # shellcheck source=../internal/testing/consumer/library.sh
 source "$root/internal/testing/consumer/library.sh"
 # shellcheck source=../internal/testing/consumer/action.sh
