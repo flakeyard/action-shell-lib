@@ -86,6 +86,57 @@ sourced, so the environment of the step cannot preset them.
   one line and one table cell and renders as no link or markup: line breaks
   become spaces, `` ` `` becomes `'` and `|` is escaped. Returns 0.
 
+### `github/api.sh`
+
+Calls of the GitHub API through the `gh` on `PATH`, which takes its token from
+the environment that the calling step sets.
+
+- `NOT_FOUND`: `3`, the status of `api_request` when the resource does not
+  exist.
+- `api_request METHOD PATH [ARG...]`: runs `gh api -X METHOD PATH ARG...` and
+  prints the response body. Errors that may pass on their own are retried, 3
+  attempts in all, after 5 and then 10 seconds: HTTP 5xx and 429, an
+  `i/o timeout`, `TLS handshake timeout` or `Client.Timeout exceeded`, a
+  connection `reset by peer` or `refused`, an `unexpected EOF`, `no such host`
+  and the GraphQL error `RATE_LIMITED`. Any other failure, such as a missing
+  token or a wrong command line, is not retried. Only requests that change
+  nothing are retried: `GET`, `HEAD`, and `POST graphql` with a field
+  `-f query=` or `-F query=` whose text is a query, starting with `{` or
+  `query`; any other request, such as a mutation, is tried once. Returns 0 on
+  success, `NOT_FOUND` for HTTP 404, and 1 on any other error, after printing it
+  on stderr.
+- `api_get PATH`: `api_request GET PATH`. Returns 0 on success and 1 on any
+  error, also when the resource does not exist, after printing it on stderr.
+
+### `github/contents.sh`
+
+Files of a repository at a commit, through the contents API. Sources
+`github/api.sh`.
+
+- `file_at PATH REF`: prints the file `PATH` of the repository `REPO`, as
+  `owner/repo`, at the commit `REF`; reads `REPO`. Every segment of `PATH`, and
+  `REF`, is percent-encoded. Returns 0 on success, `NOT_FOUND` when the file
+  does not exist, and 1 on any other error, such as a directory, a file larger
+  than 1 MB or a `PATH` with an empty, `.` or `..` segment, which it does not
+  request, after printing it on stderr.
+
+### `github/forms.sh`
+
+Names and tokens of GitHub as actions read them from inputs and files.
+
+- `REPOSITORY_NAME_FORM`: an extended regular expression for the name of a
+  repository; it needs a character other than a dot, since `.` or `..` would
+  change the path of an API call.
+- `REPOSITORY_FORM`: an extended regular expression for `owner/repo`, with the
+  name of `REPOSITORY_NAME_FORM`.
+- `TOKEN_FORM`: an extended regular expression for a token as GitHub issues
+  them.
+- `is_repository_list JSON`: returns 0 when `JSON` is an array of
+  `REPOSITORY_FORM` strings, and 1 otherwise. Prints nothing.
+- `lists_repository LIST REPOSITORY`: returns 0 when the JSON array `LIST` has
+  `REPOSITORY`, compared without case as GitHub does, and 1 otherwise. Prints
+  nothing.
+
 ## Development
 
 The repository checks itself with [`test.yaml`](.github/workflows/test.yaml),
@@ -105,11 +156,12 @@ are checked by a dispatched run of `test.yaml`. The design follows
 Tests: `tests/run.sh` runs the unit tests in `tests/unit/`, which mirrors the
 modules, with the harness, fixtures and stubs of `gh`, `date` and `sleep` in
 `internal/testing/`, and static tests of `action.yml`, which cover the step that
-rejects unsupported runners. It needs bash, coreutils, `grep`, `sed`, `jq` and
-mikefarah `yq` v4, which GitHub-hosted runners have; elsewhere run
-`nix shell nixpkgs#yq-go -c tests/run.sh`. `tests/ci/` holds the checks that a
-job of the CI runs on real runners after the action. CI runs the unit tests with
-the `bash` of the runner and the action on the supported runners.
+rejects unsupported runners, with helpers of its own in `tests/lib/`. It needs
+bash, coreutils, `grep`, `sed`, `jq` and mikefarah `yq` v4, which GitHub-hosted
+runners have; elsewhere run `nix shell nixpkgs#yq-go -c tests/run.sh`.
+`tests/ci/` holds the checks that a job of the CI runs on real runners after the
+action. CI runs the unit tests with the `bash` of the runner and the action on
+the supported runners.
 
 ## Bootstrap
 
