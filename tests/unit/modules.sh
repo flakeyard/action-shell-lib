@@ -42,7 +42,9 @@ readonly RUN_SCRIPT=run-step.sh
 
 # Variables of the environment with the names of the constants that stop a
 # second sourcing of a module.
-readonly GUARD_VARS=(ANNOTATIONS_PER_KIND=0 NOT_FOUND=0 REPOSITORY_NAME_FORM=.)
+readonly GUARD_VARS=(
+  ANNOTATIONS_PER_KIND=0 NOT_FOUND=0 REPOSITORY_NAME_FORM=. _CONTENTS_BAD_SEGMENT=.
+)
 
 # defines_functions MODULE: sourcing MODULE defines functions.
 defines_functions() {
@@ -60,6 +62,7 @@ for path in "$root"/*.sh "$root"/github/*.sh; do
   setup
   run_lib "modules: $module only defines" ok "" sources_cleanly "$module"
   expect stdout ""
+  [[ -z $current || ! -s $work/stderr ]] || report "stderr: $(<"$work/stderr")"
   finish
 
   setup

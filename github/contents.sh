@@ -4,6 +4,11 @@
 # shellcheck source=api.sh
 source "${BASH_SOURCE[0]%/*}/api.sh"
 
+# Sourcing this file twice defines its read-only constants once. A variable of
+# the environment with the same name is not read-only, and the constant
+# replaces it.
+[[ $(declare -p _CONTENTS_BAD_SEGMENT 2>/dev/null) != "declare -r"* ]] || return 0
+
 # A segment of a path that the API would resolve or drop: empty, "." or "..".
 readonly _CONTENTS_BAD_SEGMENT='(^|/)(\.{0,2})(/|$)'
 
