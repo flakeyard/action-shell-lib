@@ -68,10 +68,12 @@ are checked by a dispatched run of `test.yaml`. The design follows
 
 Tests: `tests/run.sh` runs the unit tests in `tests/unit/`, which mirrors the
 modules, with the harness, fixtures and stubs of `gh`, `date` and `sleep` in
-`internal/testing/`; it needs only bash, coreutils, `grep`, `sed` and `jq`.
-`tests/ci/` holds the checks that a job of the CI runs on real runners after the
-action. CI runs the unit tests with the `bash` of the runner and the action on
-Linux and on the runners it rejects.
+`internal/testing/`, and static tests of `action.yml`, which cover the step that
+rejects unsupported runners. It needs bash, coreutils, `grep`, `sed`, `jq` and
+mikefarah `yq` v4, which GitHub-hosted runners have; elsewhere run
+`nix shell nixpkgs#yq-go -c tests/run.sh`. `tests/ci/` holds the checks that a
+job of the CI runs on real runners after the action. CI runs the unit tests with
+the `bash` of the runner and the action on the supported runners.
 
 ## Bootstrap
 
