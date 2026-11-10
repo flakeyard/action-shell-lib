@@ -124,6 +124,9 @@ Get "https://api.github.com/x": read tcp 10.1.0.4:5000->140.82.112.6:443: read: 
 Get "https://api.github.com/x": dial tcp 140.82.112.6:443: connect: connection refused|5 10
 Get "https://api.github.com/x": unexpected EOF|5 10
 Get "https://api.github.com/x": dial tcp: lookup api.github.com: no such host|5 10
+Get "https://api.github.com/x": dial tcp 140.82.112.6:443: connect: network is unreachable|5 10
+Get "https://api.github.com/x": http2: server sent GOAWAY and closed the connection; LastStreamID=1, ErrCode=NO_ERROR, debug=""|5 10
+Get "https://api.github.com/x": http2: Transport received GOAWAY from server ErrCode:PROTOCOL_ERROR|
 CASES
 
 # Requests that fail with HTTP 502 each time: METHOD PATH|SLEEPS; only GET and

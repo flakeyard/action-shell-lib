@@ -20,9 +20,13 @@ readonly _API_RETRY_DELAY=5
 #   network or the server did not answer in time;
 # - connection reset by peer, connection refused and unexpected EOF: the
 #   connection broke or was not accepted, as while GitHub fails over;
+# - network is unreachable: the runner had no route to GitHub for a moment;
+# - server sent GOAWAY: GitHub closed an HTTP/2 connection, as while it
+#   restarts a server, before it answered; another GOAWAY, which Go itself
+#   takes as a lasting error, is not retried;
 # - no such host: a failed DNS lookup, which runners see now and then;
 # - the GraphQL error RATE_LIMITED, which gh prints with HTTP 200.
-readonly _API_TRANSIENT_ERROR='HTTP (5[0-9][0-9]|429)|i/o timeout|TLS handshake timeout|Client\.Timeout exceeded|connection reset by peer|connection refused|unexpected EOF|no such host'
+readonly _API_TRANSIENT_ERROR='HTTP (5[0-9][0-9]|429)|i/o timeout|TLS handshake timeout|Client\.Timeout exceeded|connection reset by peer|connection refused|unexpected EOF|network is unreachable|server sent GOAWAY|no such host'
 readonly _API_TRANSIENT_GRAPHQL_ERROR='"type": *"RATE_LIMITED"'
 readonly _API_NOT_FOUND_ERROR='HTTP 404'
 # Requests that change nothing, and so may be repeated: these methods, and a
