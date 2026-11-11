@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/flakeyard/action-shell-lib/compare/v0.1.3...v0.1.4) (2026-11-11)
+
+
+### Bug Fixes
+
+* find the modules of run-step.sh from $0, not BASH_SOURCE ([#31](https://github.com/flakeyard/action-shell-lib/issues/31)) ([c11a38f](https://github.com/flakeyard/action-shell-lib/commit/c11a38f840fec198da47fd5bfdc96164a23dd6db))
+
 ## [0.1.3](https://github.com/flakeyard/action-shell-lib/compare/v0.1.2...v0.1.3) (2026-11-10)
 
 
