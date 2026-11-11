@@ -175,8 +175,11 @@ Runs `STEP_DIR/STEP.sh`, the script of one step of a consumer, with
 `/usr/bin/env -i` and `/usr/bin/bash -p`. The script gets only the variables
 `VARIABLE...` that are set, and `SHELL_LIB`; exported functions, `SHELLOPTS`,
 `BASHOPTS`, `PS4` and `BASH_ENV` set by earlier steps of the job do not reach
-it. Variables of the dynamic loader, such as `LD_PRELOAD`, are not covered: the
-loader reads them when the first `bash` of the step starts.
+it. It finds the modules it sources from `$0`, which neither `BASH_SOURCE` nor
+`BASH_ARGV0` set by earlier steps can change; `bash -p` still imports
+`BASH_SOURCE`, which then names any file. Variables of the dynamic loader, such
+as `LD_PRELOAD`, are not covered: the loader reads them when the first `bash` of
+the step starts.
 
 Before it runs anything, it fails, with an error annotation and status 1, when
 `SHELL_LIB` or `STEP_DIR` is not absolute, has a `..` component or is not a

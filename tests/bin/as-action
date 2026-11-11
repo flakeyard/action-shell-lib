@@ -1,4 +1,5 @@
 #!/usr/bin/bash -p
 # Runs run-step.sh as the steps of a consumer's action.yml do: in the bash of
-# the runner in privileged mode, which runs run-step.sh in another.
-exec /usr/bin/bash -p "${BASH_SOURCE[0]%/*}/../../run-step.sh" "$@"
+# the runner in privileged mode, which runs run-step.sh in another. The tests
+# give it BASH_SOURCE, so it finds its directory from $0.
+exec /usr/bin/bash -p "${0%/*}/../../run-step.sh" "$@"

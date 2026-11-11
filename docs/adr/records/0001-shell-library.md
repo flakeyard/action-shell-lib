@@ -208,7 +208,8 @@ and `STEP_DIR` are absolute, have no `..` component and are directories, and
 that `STEP` matches `^[a-z-]+$`. It then runs `STEP_DIR/STEP.sh` with
 `/usr/bin/env -i` and `/usr/bin/bash -p`, so that exported functions,
 `SHELLOPTS`, `BASHOPTS`, `PS4` and `BASH_ENV` set by earlier steps of the job do
-not reach it.
+not reach it. `run-step.sh` finds its own modules from `$0`, since `bash -p`
+still imports `BASH_SOURCE` from the environment.
 
 ### Requirements
 
