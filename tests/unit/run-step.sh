@@ -43,6 +43,36 @@ expect no-message "NIX_CONFIG"
 expect no-message "GH_HOST"
 finish
 
+# The variables of bash that name the running script, pointing at a sibling
+# directory whose report.sh leaves a marker when it is sourced.
+# script_path_setup: step_setup with that directory in $work/evil.
+script_path_setup() {
+  step_setup
+  mkdir "$work/evil"
+  printf 'echo EVIL-RAN; : >%q\n' "$work/ran" >"$work/evil/report.sh"
+  script_path_vars=(
+    BASH_SOURCE="$work/evil/run-step.sh" BASH_ARGV0="$work/evil/run-step.sh"
+  )
+}
+
+script_path_setup
+run "run-step: the environment does not name the library" ok "$AS_ACTION" \
+  "${script_path_vars[@]}" -- "$work/step" probe
+expect message "functions: 0"
+expect no-message "EVIL-RAN"
+expect no-message "BASH_SOURCE="
+[[ -z $current || ! -e $work/ran ]] || report "run-step.sh sourced a module of the environment"
+finish
+
+script_path_setup
+run "run-step: the environment does not name the library of the checks" fail \
+  "$AS_ACTION" "${script_path_vars[@]}" -- "$work/step" ../step/ran
+expect message "::error::run-step.sh: invalid step name '../step/ran'."
+expect no-message "EVIL-RAN"
+expect no-message "STEP-RAN"
+[[ -z $current || ! -e $work/ran ]] || report "run-step.sh sourced a module of the environment"
+finish
+
 step_setup
 run "run-step: the variables the step names, and SHELL_LIB" ok "$AS_ACTION" \
   A=$'a\nb' B=b -- "$work/step" probe A C

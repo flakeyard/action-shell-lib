@@ -16,6 +16,11 @@ expect stdout '::notice::100%250A'
 finish
 
 setup
+run_lib "report: a message with :: stays one command" ok "$lib" notice 'foo::bar::baz'
+expect stdout '::notice::foo::bar::baz'
+finish
+
+setup
 run_lib "report: errors do not exit" ok "$lib" error one
 expect stdout '::error::one'
 finish

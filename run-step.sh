@@ -6,16 +6,18 @@
 # variable for the rest of the job, such as exported functions
 # (BASH_FUNC_name%%) that replace commands, or SHELLOPTS and PS4 that run code.
 # bash -p imports no functions, SHELLOPTS or BASHOPTS and reads no BASH_ENV,
-# here and in the step. Variables of the dynamic loader, such as LD_PRELOAD,
-# are not covered: the loader reads them when the first bash of the step
-# starts, before this script.
+# here and in the step. It still imports BASH_SOURCE, which then names any
+# file, so this script finds its directory from $0: neither the environment
+# nor BASH_ARGV0 in it can set $0. Variables of the dynamic loader, such as
+# LD_PRELOAD, are not covered: the loader reads them when the first bash of
+# the step starts, before this script.
 #
 # PATH is the job's until the step replaces it, so this script runs only
 # builtins and absolute paths.
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR source=report.sh
-source "${BASH_SOURCE[0]%/*}/report.sh"
+source "${0%/*}/report.sh"
 
 # A name only, so that no path leaves STEP_DIR.
 readonly STEP_FORM='^[a-z-]+$'
