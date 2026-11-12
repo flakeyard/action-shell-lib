@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/flakeyard/action-shell-lib/compare/v0.3.0...v0.3.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* check only the script steps of internal actions in internal/testing ([#44](https://github.com/flakeyard/action-shell-lib/issues/44)) ([cca8131](https://github.com/flakeyard/action-shell-lib/commit/cca813181b23d64afcc75a578a04379894bbe411))
+
 ## [0.3.0](https://github.com/flakeyard/action-shell-lib/compare/v0.2.0...v0.3.0) (2026-11-12)
 
 
