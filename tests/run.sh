@@ -24,6 +24,8 @@ source "$root/internal/testing/workflow.sh"
 source "$root/internal/testing/consumer/library.sh"
 # shellcheck source=../internal/testing/consumer/action.sh
 source "$root/internal/testing/consumer/action.sh"
+# shellcheck source=../internal/testing/consumer/step.sh
+source "$root/internal/testing/consumer/step.sh"
 # shellcheck source=lib/hostile.sh
 source "$root/tests/lib/hostile.sh"
 
