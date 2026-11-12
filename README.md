@@ -41,8 +41,9 @@ public API: `consumer/library.sh` copies the library so that its steps run the
 tools and the bash of the tests, also where there is no `/usr/bin/bash`,
 `consumer/step.sh` runs the script of a step as its run line does, also with the
 variables that earlier steps of a job can set to run code, and
-`consumer/action.sh` tests that the steps of `action.yml` and the pins follow
-this section.
+`consumer/action.sh` tests that the steps of an `action.yml`, also of an
+internal action of a reusable workflow that gets the library as its input
+`shell-lib`, and the pins follow this section.
 
 ## Runner requirements
 
