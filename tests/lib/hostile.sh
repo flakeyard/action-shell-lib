@@ -2,14 +2,16 @@
 # Variables of the environment that earlier steps of a job can set to attack
 # the modules: every read-only constant and internal name of the modules, with
 # a value that runs a command when it is evaluated as arithmetic. Source this
-# file after internal/testing/case.sh.
+# file after internal/testing/case.sh and consumer/step.sh.
 # shellcheck disable=SC2154 # root comes from tests/run.sh.
 
 # module_names: print the read-only constants and the names that start with _
 # in the modules, one per line.
 module_names() {
-  grep -ohE '(readonly [A-Za-z_][A-Za-z0-9_]*|\b_[A-Za-z][A-Za-z0-9_]*)' \
-    "$root"/*.sh "$root"/github/*.sh | sed 's/^readonly //' | sort -u
+  local modules=()
+  mapfile -t modules < <(library_modules)
+  (cd -- "$root" && grep -ohE '(readonly [A-Za-z_][A-Za-z0-9_]*|\b_[A-Za-z][A-Za-z0-9_]*)' \
+    "${modules[@]}") | sed 's/^readonly //' | sort -u
 }
 
 # hostile_environment MARKER: print NAME=VALUE for each of module_names, with

@@ -57,9 +57,8 @@ defines_functions() {
   ((after > before))
 }
 
-for path in "$root"/*.sh "$root"/github/*.sh; do
-  module=${path#"$root/"}
-  [[ -f $path && $module != "$RUN_SCRIPT" ]] || continue
+while IFS= read -r module; do
+  [[ $module != "$RUN_SCRIPT" ]] || continue
   setup
   run_lib "modules: $module only defines" ok "" sources_cleanly "$module"
   expect stdout ""
@@ -71,4 +70,4 @@ for path in "$root"/*.sh "$root"/github/*.sh; do
   run_lib "modules: $module ignores variables of the environment" ok "" \
     defines_functions "$module"
   finish
-done
+done < <(library_modules)
