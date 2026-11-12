@@ -16,7 +16,7 @@ readonly INNER=.github/actions/inner/action.yml
 
 # consumer_fixture: $work/consumer, whose action.yml and workflow use the
 # library at PIN as the README shows, and whose internal action INNER gets it
-# as its input shell-lib.
+# as its input shell-lib and also uses another action.
 consumer_fixture() {
   mkdir -p "$work/consumer/.github/workflows" "$work/consumer/${INNER%/*}"
   cat >"$work/consumer/action.yml" <<ACTION
@@ -46,6 +46,8 @@ inputs:
 runs:
   using: composite
   steps:
+    - id: token
+      uses: actions/create-github-app-token@0123456789abcdef0123456789abcdef01234567 # v2
     - shell: /usr/bin/bash --noprofile --norc -p -e -o pipefail {0}
       env:
         SHELL_LIB: ${{ inputs.shell-lib }}
@@ -117,19 +119,27 @@ action.yml|check LOCK_PATH PATH|check PATH|action.yml: every step names its vari
 .github/workflows/test.yaml|flakeyard/action-shell-lib|FlakeYard/Action-Shell-Lib|action: every use of the library names one commit|1
 $INNER|required: true|required: false|$INNER: the library is the first step|1
 $INNER|inputs.shell-lib }}|steps.lib.outputs.path }}|$INNER: every step runs its script|1
+$INNER|/usr/bin/bash -p "\$SHELL_LIB|bash -p "\$SHELL_LIB|$INNER: every step runs its script|1
 $INNER|step" flake-checks FLAKE|step" flake-checks|$INNER: every step names its variables|1
 CASES
 
-  # A library step of its own in the internal action, which also has no
-  # shell, run line or env.
+  # Another action after the library step of an action that is not internal:
+  # every step there runs a script.
+  setup
+  consumer_fixture
+  change action.yml "uses: $PIN # v0.1.0" $'uses: '"$PIN"$' # v0.1.0\n    - uses: actions/checkout@'"${PIN#*@}"
+  run_lib "consumer action: another action after the library step fails" fail "" consumer_checks
+  expect message "FAIL action.yml: every step runs its script"
+  finish
+
+  # A library step of its own in the internal action: its other steps with
+  # uses are not checked further, this one is.
   setup
   consumer_fixture
   change "$INNER" "  steps:" $'  steps:\n    - id: lib\n      uses: '"$PIN"
   run_lib "consumer action: a library step in an internal action fails" fail "" consumer_checks
   expect message "FAIL $INNER: the library is the first step"
-  expect message "FAIL $INNER: every step runs its script"
-  expect message "FAIL $INNER: every step names its variables"
-  expect message "passed: $((CHECKS - 3)), failed: 3"
+  expect message "passed: $((CHECKS - 1)), failed: 1"
   finish
 
   setup
