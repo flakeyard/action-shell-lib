@@ -123,8 +123,13 @@ the environment that the calling step sets.
   is a query, starting with `{` or `query`; any other request, such as a
   mutation, is tried once. Returns 0 on success, `NOT_FOUND` for HTTP 404, and 1
   on any other error, after printing it on stderr.
-- `api_get PATH`: `api_request GET PATH`. Returns 0 on success and 1 on any
-  error, also when the resource does not exist, after printing it on stderr.
+- `api_get PATH [ARG...]`: `api_request GET PATH ARG...`, where `ARG...` are
+  further arguments of `gh api`, such as `--paginate --jq FILTER`, which prints
+  `FILTER` of each page one after another; without `--jq`, `--paginate` prints
+  the JSON of each page one after another. The method stays `GET`: an `ARG` that
+  sets it, `-X` or `--method`, is an error. Returns 0 on success and 1 on any
+  error, also when the resource does not exist, which it reports as
+  `PATH: Not Found (HTTP 404)`, after printing it on stderr.
 
 ### `github/contents.sh`
 

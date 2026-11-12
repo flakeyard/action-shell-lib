@@ -55,6 +55,41 @@ expect sleeps "5 10"
 finish
 
 setup
+fixture "repos/o/r/items?per_page=100" '[{"n":1}]'
+next_page "repos/o/r/items?per_page=100" 2 '[{"n":2}]'
+transient_failures "repos/o/r/items?per_page=100" 1
+run_lib "api: api_get passes --paginate and --jq on and retries" ok "$lib" \
+  api_get "repos/o/r/items?per_page=100" --paginate --jq '.[].n'
+expect stdout $'1\n2'
+expect sleeps "5"
+finish
+
+setup
+run_lib "api: a missing list fails api_get with its path" fail "$lib" \
+  api_get "repos/o/r/items?per_page=100" --paginate --jq '.[].n'
+expect message "repos/o/r/items?per_page=100: Not Found (HTTP 404)"
+finish
+
+# Arguments of api_get that would set another method than GET.
+while IFS= read -r arguments; do
+  setup
+  apply LOG_GETS=1
+  read -ra words <<<"$arguments"
+  run_lib "api: api_get rejects $arguments" fail "$lib" \
+    api_get repos/o/r/thing "${words[@]}"
+  expect message "the method is GET"
+  expect no-calls
+  finish
+done <<'CASES'
+-X DELETE
+-XDELETE
+-iXDELETE
+--method DELETE
+--method=DELETE
+--paginate -X POST -f a=b
+CASES
+
+setup
 transient_failures repos/o/r/thing 1
 run_lib "api: a missing resource after a retry is NOT_FOUND" ok "$lib" \
   missing_is_not_found repos/o/r/thing

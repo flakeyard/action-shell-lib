@@ -37,6 +37,10 @@ readonly _API_IDEMPOTENT_METHOD='^(GET|HEAD)$'
 readonly _API_GRAPHQL='graphql'
 readonly _API_GRAPHQL_QUERY='^[[:space:]]*(\{|query([^A-Za-z0-9_]|$))'
 readonly _API_FIELD_FLAG='^-[fF]$'
+# Arguments of gh api that set the method, where the last one wins: -X, also
+# with its value or after -i or -h in one argument, such as -iXPOST, and
+# --method.
+readonly _API_METHOD_FLAG='^-[hi]*X|^--method(=|$)'
 
 # _api_is_transient DIR: true when the failed request, with the error of gh
 # and the response body in DIR, may pass on its own.
@@ -112,11 +116,28 @@ api_request() {
   return "$result"
 }
 
-# api_get PATH: print the resource PATH. Returns 0 on success and 1 on any
-# error, also when it does not exist, after printing it on stderr.
+# _api_sets_method ARG...: one of the arguments of gh api ARG... sets the
+# method.
+_api_sets_method() {
+  local arg
+  for arg; do
+    [[ ! $arg =~ $_API_METHOD_FLAG ]] || return 0
+  done
+  return 1
+}
+
+# api_get PATH [ARG...]: print the resource PATH, with the further arguments
+# ARG... of gh api, such as --paginate and --jq; an argument that sets the
+# method is an error. Returns 0 on success and 1 on any error, also when the
+# resource does not exist, after printing it on stderr.
 api_get() {
   local path=$1 status=0
-  api_request GET "$path" || status=$?
+  shift
+  if _api_sets_method "$@"; then
+    printf 'api_get %s: the method is GET, the arguments must not set it: %s\n' "$path" "$*" >&2
+    return 1
+  fi
+  api_request GET "$path" "$@" || status=$?
   if ((status == NOT_FOUND)); then
     printf '%s: Not Found (HTTP 404)\n' "$path" >&2
   fi
