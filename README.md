@@ -169,6 +169,11 @@ The environment of the script of a step.
   steps can change, exports `PATH=$SYSTEM_PATH` and `LC_ALL=C`, and sets the
   shell option `inherit_errexit`, so that `set -e` also holds in command
   substitutions. Prints nothing; returns 0.
+- `job_tool NAME`: prints the absolute path of the executable `NAME`, a command
+  name without `/`, that `JOB_PATH` finds first, such as the `nix` that an
+  earlier step installed; reads `JOB_PATH`. Returns 0 on success, and 1 when
+  there is none or the one found first is not an absolute path, after printing
+  `job_tool: no NAME on the PATH of the job` on stderr.
 
 ### `run-step.sh`
 
