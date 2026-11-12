@@ -57,3 +57,47 @@ run_lib "consumer library: a library without the line of SYSTEM_PATH fails" fail
   copy_from "$work/changed" "$work/copy" /x
 expect message "copy_library: cannot set SYSTEM_PATH in $work/copy/env.sh"
 finish
+
+# The line of run-step.sh that runs the step, restated as an independent
+# oracle: the library runs the env and bash of the runner.
+readonly RUNNER_EXEC_LINE='exec /usr/bin/env -i "${vars[@]}" /usr/bin/bash -p "$step_dir/$step.sh"'
+
+# test_interpreters_setup: setup with the bash of the tests and an env that
+# records its calls in $work/env-ran, in a directory with a space first on
+# PATH, and the step probe in $work/step, which prints its bash.
+test_interpreters_setup() {
+  local bin
+  setup
+  bin="$work/test bin"
+  mkdir "$bin" "$work/step"
+  ln -s -- "$BASH" "$bin/bash"
+  printf '#!/bin/sh\necho env >>%q\nexec %q "$@"\n' "$work/env-ran" "$(type -P env)" >"$bin/env"
+  chmod +x "$bin/env"
+  printf '%s\n' 'printf "%s\n" "$BASH"' >"$work/step/probe.sh"
+  apply PATH="$bin:$TESTING_BIN:$HOST_PATH" SHELL_LIB="$work/copy"
+}
+
+# step_of_copy COPY STEP_DIR STEP: run STEP_DIR/STEP.sh through run-step.sh of
+# COPY, a copy of the library, as a step does.
+step_of_copy() {
+  local copy=$1 step_dir=$2 step=$3
+  bash -p "$copy/run-step.sh" "$step_dir" "$step"
+}
+
+test_interpreters_setup
+run_lib "consumer library: the copy runs the bash and env of the tests" ok "" \
+  copy_from "$root" "$work/copy" /x
+run_lib "consumer library: the steps of the copy run in the bash of the tests" ok "" \
+  step_of_copy "$work/copy" "$work/step" probe
+expect stdout "$work/test bin/bash"
+[[ -z $current || -s $work/env-ran ]] || report "the step ran another env"
+grep -qxF -- "$RUNNER_EXEC_LINE" "$root/run-step.sh" || report "the library runs other interpreters"
+finish
+
+test_interpreters_setup
+cp -R -- "$root" "$work/changed"
+sed -i -e 's/^exec /exec  /' "$work/changed/run-step.sh"
+run_lib "consumer library: a library without the line that runs the step fails" fail "" \
+  copy_from "$work/changed" "$work/copy" /x
+expect message "copy_library: cannot set the bash and env of $work/copy/run-step.sh"
+finish

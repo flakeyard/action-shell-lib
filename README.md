@@ -38,8 +38,9 @@ every `uses:` of it in one repository. Tests that need the library without a
 runner fetch it at that commit, which they read from the file that pins it.
 Their harness can come from `internal/testing/` of that commit, which is not
 public API: `consumer/library.sh` copies the library so that its steps run the
-tools of the tests, and `consumer/action.sh` tests that the steps of
-`action.yml` and the pins follow this section.
+tools and the bash of the tests, also where there is no `/usr/bin/bash`, and
+`consumer/action.sh` tests that the steps of `action.yml` and the pins follow
+this section.
 
 ## Runner requirements
 
