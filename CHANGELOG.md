@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/flakeyard/action-shell-lib/compare/v0.1.4...v0.2.0) (2026-11-12)
+
+
+### Features
+
+* pass further gh arguments on in api_get ([#36](https://github.com/flakeyard/action-shell-lib/issues/36)) ([d76b728](https://github.com/flakeyard/action-shell-lib/commit/d76b7289cdcff847ca67424a93eaca5204d5778d))
+
 ## [0.1.4](https://github.com/flakeyard/action-shell-lib/compare/v0.1.3...v0.1.4) (2026-11-11)
 
 
