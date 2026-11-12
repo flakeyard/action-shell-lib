@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/flakeyard/action-shell-lib/compare/v0.2.0...v0.3.0) (2026-11-12)
+
+
+### Features
+
+* find a tool on the PATH of the job with job_tool ([#38](https://github.com/flakeyard/action-shell-lib/issues/38)) ([8021e0d](https://github.com/flakeyard/action-shell-lib/commit/8021e0d88b97d995c16919527c6e77969e48f019))
+
+
+### Bug Fixes
+
+* check internal actions that get the library as an input ([#41](https://github.com/flakeyard/action-shell-lib/issues/41)) ([bda3499](https://github.com/flakeyard/action-shell-lib/commit/bda349958fb513573a932b8fe510765945d8bfd3))
+* run the steps of a copy of the library with the bash of the tests ([#39](https://github.com/flakeyard/action-shell-lib/issues/39)) ([f9a8ee0](https://github.com/flakeyard/action-shell-lib/commit/f9a8ee0bc22bf4afa5d6a01320e7cf8909f50910))
+* share the runs of a step as its run line runs it in internal/testing ([#40](https://github.com/flakeyard/action-shell-lib/issues/40)) ([bf5ee91](https://github.com/flakeyard/action-shell-lib/commit/bf5ee91fc0363db0547c9dc33ff2603090ef35d1))
+
 ## [0.2.0](https://github.com/flakeyard/action-shell-lib/compare/v0.1.4...v0.2.0) (2026-11-12)
 
 
