@@ -24,7 +24,7 @@ step_setup() {
 mapfile -t functions < <(declare -F)
 printf 'functions: %s\n' "${#functions[@]}"
 printf 'xtrace: %s\n' "$([[ -o xtrace ]] && echo on || echo off)"
-printf 'child functions: %s\n' "$(/usr/bin/bash -c 'declare -F | /usr/bin/wc -l')"
+printf 'child functions: %s\n' "$(/usr/bin/bash -c 'mapfile -t f < <(declare -F); echo "${#f[@]}"')"
 /usr/bin/env
 PROBE
   echo 'echo STEP-RAN' >"$work/step/ran.sh"
