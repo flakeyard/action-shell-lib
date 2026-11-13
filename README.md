@@ -203,6 +203,14 @@ and absolute paths, since `PATH` is still the job's.
 
 ## Development
 
+Open the repository in its dev container,
+[`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json), with
+"Reopen in Container" in VS Code or `devcontainer up --workspace-folder .`. It
+has Nix, and the checks below run in it as in CI, except `tests/run.sh`, whose
+tests run the bash of the runners at `/usr/bin/bash`; tools that the image does
+not have come from nixpkgs, such as `nix run nixpkgs#actionlint`. Nix on the
+host works as well.
+
 The repository checks itself with [`test.yaml`](.github/workflows/test.yaml),
 which calls [workflow-check][workflow-check] as its only job. The repository has
 no flake yet, so workflow-check builds no checks; it checks the pull request
@@ -222,10 +230,11 @@ modules, with the harness, fixtures and stubs of `gh`, `date` and `sleep` in
 `internal/testing/`, and static tests of `action.yml`, which cover the step that
 rejects unsupported runners, with helpers of its own in `tests/lib/`. It needs
 bash, coreutils, `grep`, `sed`, `jq` and mikefarah `yq` v4, which GitHub-hosted
-runners have; elsewhere run `nix shell nixpkgs#yq-go -c tests/run.sh`.
-`tests/ci/` holds the checks that a job of the CI runs on real runners after the
-action. CI runs the unit tests with the `bash` of the runner and the action on
-the supported runners.
+runners have; elsewhere run
+`nix shell nixpkgs#yq-go nixpkgs#jq -c tests/run.sh`. `tests/ci/` holds the
+checks that a job of the CI runs on real runners after the action. CI runs the
+unit tests with the `bash` of the runner and the action on the supported
+runners.
 
 ## Bootstrap
 
