@@ -208,15 +208,18 @@ Open the repository in its dev container,
 "Reopen in Container" in VS Code or `devcontainer up --workspace-folder .`. It
 has Nix, and the checks below run in it as in CI, except `tests/run.sh`, whose
 tests run the bash of the runners at `/usr/bin/bash`; tools that the image does
-not have come from nixpkgs, such as `nix run nixpkgs#actionlint`. Nix on the
-host works as well.
+not have come from nixpkgs, such as `nix run nixpkgs#typos`. Nix on the host
+works as well.
 
 The repository checks itself with [`test.yaml`](.github/workflows/test.yaml),
-which calls [workflow-check][workflow-check] as its only job. The repository has
-no flake yet, so workflow-check builds no checks; it checks the pull request
-title, `renovate.json` and the release behind its preset tag, and reports
-`check / required`. Before a pull request, run shellcheck, shfmt, actionlint,
-zizmor, prettier, markdownlint, typos and `reuse lint`.
+which calls [workflow-check][workflow-check] after its own jobs. The root
+[`flake.nix`](flake.nix) only imports atoms ([FY-0038][fy-0038]):
+[atom-workflows][atom-workflows] lints the workflows and `action.yml` with
+actionlint and zizmor (`checks.workflows`). workflow-check checks `flake.lock`,
+builds the checks of the flake, checks the pull request title, `renovate.json`
+and the release behind its preset tag, and reports `check / required`. Before a
+pull request, run `nix flake check`, shellcheck, shfmt, prettier, markdownlint,
+typos and `reuse lint`.
 
 [`scorecard.yaml`](.github/workflows/scorecard.yaml) runs OpenSSF Scorecard with
 [workflow-scorecard][workflow-scorecard]. The repository releases itself with
@@ -241,8 +244,8 @@ runners.
 Following [FY-0022][fy-0022], some checks of this repository are not released
 yet. Until they are:
 
-- shellcheck, shfmt, actionlint, zizmor, prettier, markdownlint, typos and REUSE
-  run locally before every pull request; the atoms will provide them.
+- shellcheck, shfmt, prettier, markdownlint, typos and REUSE run locally before
+  every pull request; the atoms will provide them.
 - The first release of this action runs on a workflow-release that does not use
   it yet; workflow-release and action-setup-nix adopt the library after that
   release ([FY-0035][fy-0035]).
@@ -252,6 +255,7 @@ yet. Until they are:
 [MIT](LICENSE).
 
 [adr-0001]: docs/adr/records/0001-shell-library.md
+[atom-workflows]: https://github.com/flakeyard/atom-workflows
 [workflow-check]: https://github.com/flakeyard/workflow-check
 [workflow-release]: https://github.com/flakeyard/workflow-release
 [workflow-scorecard]: https://github.com/flakeyard/workflow-scorecard
@@ -263,3 +267,5 @@ yet. Until they are:
   https://github.com/flakeyard/decisions/blob/main/docs/adr/records/0034-check-every-repository-with-workflow-check.md
 [fy-0035]:
   https://github.com/flakeyard/decisions/blob/main/docs/adr/records/0035-extract-logic-that-has-two-users.md
+[fy-0038]:
+  https://github.com/flakeyard/decisions/blob/main/docs/adr/records/0038-roll-out-the-atoms.md
