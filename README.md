@@ -205,11 +205,19 @@ and absolute paths, since `PATH` is still the job's.
 
 Open the repository in its dev container,
 [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json), with
-"Reopen in Container" in VS Code or `devcontainer up --workspace-folder .`. It
-has Nix, and the checks below run in it as in CI, except `tests/run.sh`, whose
-tests run the bash of the runners at `/usr/bin/bash`; tools that the image does
-not have come from nixpkgs, such as `nix run nixpkgs#typos`. Nix on the host
-works as well.
+"Reopen in Container" in VS Code or `devcontainer up --workspace-folder .`.
+`direnv` loads the development shell of [`flake.nix`](flake.nix) through
+[`.envrc`](.envrc) ([FY-0012][fy-0012]): [atom-workspace][atom-workspace] joins
+the tools of the atoms and the interactive `bash`, `jq` and mikefarah `yq` for
+`tests/run.sh`, and installs the git hooks each time the shell starts. The
+container runs `direnv allow` when it is created; run it once in every other
+worktree, and run `direnv block` before you check out a branch you do not trust,
+since entering the directory runs that branch's shell hook. Commit inside the
+container, whose Nix store has the tools of the hooks. The checks below run in
+it as in CI, except `tests/run.sh`, whose tests run the bash of the runners at
+`/usr/bin/bash`; tools that the shell does not have come from nixpkgs, such as
+`nix run nixpkgs#typos`. Nix on the host works as well: `direnv allow` or
+`nix develop` gives the same shell.
 
 The repository checks itself with [`test.yaml`](.github/workflows/test.yaml),
 which calls [workflow-check][workflow-check] after its own jobs. The root
@@ -233,11 +241,9 @@ modules, with the harness, fixtures and stubs of `gh`, `date` and `sleep` in
 `internal/testing/`, and static tests of `action.yml`, which cover the step that
 rejects unsupported runners, with helpers of its own in `tests/lib/`. It needs
 bash, coreutils, `grep`, `sed`, `jq` and mikefarah `yq` v4, which GitHub-hosted
-runners have; elsewhere run
-`nix shell nixpkgs#yq-go nixpkgs#jq -c tests/run.sh`. `tests/ci/` holds the
-checks that a job of the CI runs on real runners after the action. CI runs the
-unit tests with the `bash` of the runner and the action on the supported
-runners.
+runners and the development shell have. `tests/ci/` holds the checks that a job
+of the CI runs on real runners after the action. CI runs the unit tests with the
+`bash` of the runner and the action on the supported runners.
 
 ## Bootstrap
 
@@ -269,3 +275,6 @@ yet. Until they are:
   https://github.com/flakeyard/decisions/blob/main/docs/adr/records/0035-extract-logic-that-has-two-users.md
 [fy-0038]:
   https://github.com/flakeyard/decisions/blob/main/docs/adr/records/0038-roll-out-the-atoms.md
+[atom-workspace]: https://github.com/flakeyard/atom-workspace
+[fy-0012]:
+  https://github.com/flakeyard/decisions/blob/main/docs/adr/records/0012-develop-in-container.md
