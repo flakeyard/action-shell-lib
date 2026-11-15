@@ -16,8 +16,8 @@ readonly _CONTENTS_BAD_SEGMENT='(^|/)(\.{0,2})(/|$)'
 # that is empty, "." or "..".
 _contents_check_path() {
   local path=$1
-  [[ ! $path =~ $_CONTENTS_BAD_SEGMENT ]] && return 0
-  printf "'%s' has an empty, '.' or '..' segment\n" "$path" >&2
+  [[ ! ${path} =~ ${_CONTENTS_BAD_SEGMENT} ]] && return 0
+  printf "'%s' has an empty, '.' or '..' segment\n" "${path}" >&2
   return 1
 }
 
@@ -26,7 +26,7 @@ _contents_check_path() {
 # file name, and the "/" between the segments kept.
 _contents_path() {
   local path=$1 ref=$2
-  jq -rn --arg repo "$REPO" --arg path "$path" --arg ref "$ref" \
+  jq -rn --arg repo "${REPO}" --arg path "${path}" --arg ref "${ref}" \
     '"repos/\($repo)/contents/\($path | split("/") | map(@uri) | join("/"))?ref=\($ref | @uri)"'
 }
 
@@ -36,12 +36,12 @@ _contents_path() {
 # with an empty, "." or ".." segment, after printing it on stderr.
 file_at() {
   local path=$1 ref=$2 body status=0
-  _contents_check_path "$path" || return 1
-  body=$(api_request GET "$(_contents_path "$path" "$ref")") || status=$?
-  ((status == 0)) || return "$status"
-  jq -e '.type == "file" and .encoding == "base64"' <<<"$body" >/dev/null || {
-    printf '%s: not a file of at most 1 MB\n' "$path" >&2
+  _contents_check_path "${path}" || return 1
+  body=$(api_request GET "$(_contents_path "${path}" "${ref}")") || status=$?
+  ((status == 0)) || return "${status}"
+  jq -e '.type == "file" and .encoding == "base64"' <<<"${body}" >/dev/null || {
+    printf '%s: not a file of at most 1 MB\n' "${path}" >&2
     return 1
   }
-  jq -r .content <<<"$body" | base64 -d
+  jq -r .content <<<"${body}" | base64 -d
 }

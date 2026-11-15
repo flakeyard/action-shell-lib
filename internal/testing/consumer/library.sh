@@ -20,13 +20,13 @@ readonly RUNNER_EXEC_LINE_FORM='^exec /usr/bin/env -i (.*) /usr/bin/bash -p (.*)
 # cannot, since the steps would then run the tools of the host.
 copy_library() {
   local dir=$1 system_path=$2
-  [[ ! -e $dir ]] || copy_error "$dir exists"
-  { cp -R -- "$TESTED_LIBRARY" "$dir" && chmod -R u+w -- "$dir"; } \
-    || copy_error "cannot copy $TESTED_LIBRARY"
-  rewrite_lines "$dir/env.sh" "$SYSTEM_PATH_LINE_FORM" system_path_line "$system_path"
-  [[ $(system_path_of "$dir/env.sh") == "$system_path" ]] \
-    || copy_error "cannot set SYSTEM_PATH in $dir/env.sh"
-  use_test_interpreters "$dir/run-step.sh"
+  [[ ! -e ${dir} ]] || copy_error "${dir} exists"
+  { cp -R -- "${TESTED_LIBRARY}" "${dir}" && chmod -R u+w -- "${dir}"; } \
+    || copy_error "cannot copy ${TESTED_LIBRARY}"
+  rewrite_lines "${dir}/env.sh" "${SYSTEM_PATH_LINE_FORM}" system_path_line "${system_path}"
+  [[ $(system_path_of "${dir}/env.sh") == "${system_path}" ]] \
+    || copy_error "cannot set SYSTEM_PATH in ${dir}/env.sh"
+  use_test_interpreters "${dir}/run-step.sh"
 }
 
 # copy_error MESSAGE: exit 2 with MESSAGE about copy_library.
@@ -42,40 +42,40 @@ rewrite_lines() {
   local file=$1 form=$2 line lines=()
   shift 2
   while IFS= read -r line; do
-    if [[ $line =~ $form ]]; then line=$("$@"); fi
-    lines+=("$line")
-  done <"$file"
-  printf '%s\n' "${lines[@]}" >"$file"
+    if [[ ${line} =~ ${form} ]]; then line=$("$@"); fi
+    lines+=("${line}")
+  done <"${file}"
+  printf '%s\n' "${lines[@]}" >"${file}"
 }
 
 # system_path_line SYSTEM_PATH: print the line of env.sh that sets
 # SYSTEM_PATH, which may hold any character.
 system_path_line() {
   local system_path=$1
-  printf 'readonly SYSTEM_PATH=%q\n' "$system_path"
+  printf 'readonly SYSTEM_PATH=%q\n' "${system_path}"
 }
 
 # system_path_of FILE: print the SYSTEM_PATH that FILE, an env.sh, sets.
 system_path_of() {
   local file=$1
   # shellcheck disable=SC2016 # code for the other bash, not expanded here
-  env -i "$BASH" --noprofile --norc -c 'source "$1" && printf "%s\n" "$SYSTEM_PATH"' \
-    bash "$file"
+  env -i "${BASH}" --noprofile --norc -c 'source "$1" && printf "%s\n" "$SYSTEM_PATH"' \
+    bash "${file}"
 }
 
 # use_test_interpreters FILE: the line of FILE, a run-step.sh, that runs the
 # step runs ENV, the env on PATH, and BASH instead of those of the runner.
 use_test_interpreters() {
   local file=$1 env exec_line
-  env=$(type -P env) && [[ $env == /* ]] || copy_error "no env on PATH"
-  rewrite_lines "$file" "$RUNNER_EXEC_LINE_FORM" test_exec_line "$env"
-  printf -v exec_line 'exec %q -i ' "$env"
-  grep -qF -- "$exec_line" "$file" || copy_error "cannot set the bash and env of $file"
+  env=$(type -P env) && [[ ${env} == /* ]] || copy_error "no env on PATH"
+  rewrite_lines "${file}" "${RUNNER_EXEC_LINE_FORM}" test_exec_line "${env}"
+  printf -v exec_line 'exec %q -i ' "${env}"
+  grep -qF -- "${exec_line}" "${file}" || copy_error "cannot set the bash and env of ${file}"
 }
 
 # test_exec_line ENV: print the line of run-step.sh that runs the step, with
 # the arguments of BASH_REMATCH, through ENV and BASH.
 test_exec_line() {
   local env=$1
-  printf 'exec %q -i %s %q -p %s\n' "$env" "${BASH_REMATCH[1]}" "$BASH" "${BASH_REMATCH[2]}"
+  printf 'exec %q -i %s %q -p %s\n' "${env}" "${BASH_REMATCH[1]}" "${BASH}" "${BASH_REMATCH[2]}"
 }

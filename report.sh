@@ -30,59 +30,59 @@ escape_command() {
   text=${text//%/%25}
   text=${text//$'\r'/%0D}
   text=${text//$'\n'/%0A}
-  printf '%s\n' "$text"
+  printf '%s\n' "${text}"
 }
 
 # escape_property TEXT: print TEXT as a property of one workflow command, such
 # as the title of an annotation: also "," and ":" end a property.
 escape_property() {
   local text=$1
-  text=$(escape_command "$text")
+  text=$(escape_command "${text}")
   text=${text//:/%3A}
   text=${text//,/%2C}
-  printf '%s\n' "$text"
+  printf '%s\n' "${text}"
 }
 
 # _report_command KIND MESSAGE [FILE [TITLE]]: print the annotation of KIND
 # with its properties and message escaped.
 _report_command() {
   local kind=$1 message=$2 file=${3-} title=${4-} properties=() IFS=,
-  [[ -z $file ]] || properties+=("file=$(escape_property "$file")")
-  [[ -z $title ]] || properties+=("title=$(escape_property "$title")")
+  [[ -z ${file} ]] || properties+=("file=$(escape_property "${file}")")
+  [[ -z ${title} ]] || properties+=("title=$(escape_property "${title}")")
   local joined=${properties[*]}
-  printf '::%s%s::%s\n' "$kind" "${joined:+ $joined}" "$(escape_command "$message")"
+  printf '::%s%s::%s\n' "${kind}" "${joined:+ ${joined}}" "$(escape_command "${message}")"
 }
 
 # _report_get NAME: print the state NAME of this file, such as count_error;
 # empty until it is set.
 _report_get() {
-  local var=$_REPORT_STATE$1
+  local var=${_REPORT_STATE}$1
   printf '%s\n' "${!var-}"
 }
 
 # _report_set NAME VALUE: set the state NAME of this file to VALUE.
 _report_set() {
-  printf -v "$_REPORT_STATE$1" '%s' "$2"
+  printf -v "${_REPORT_STATE}$1" '%s' "$2"
 }
 
 # _report_count KIND: print the number of annotations of KIND so far.
 _report_count() {
   local count
   count=$(_report_get "count_$1")
-  [[ $count =~ $_REPORT_NUMBER ]] || count=0
-  printf '%s\n' "$count"
+  [[ ${count} =~ ${_REPORT_NUMBER} ]] || count=0
+  printf '%s\n' "${count}"
 }
 
 # _report_annotate KIND MESSAGE [FILE [TITLE]]: write or hold an annotation of
 # KIND, within ANNOTATIONS_PER_KIND.
 _report_annotate() {
   local kind=$1 count
-  count=$(($(_report_count "$kind") + 1))
-  _report_set "count_$kind" "$count"
+  count=$(($(_report_count "${kind}") + 1))
+  _report_set "count_${kind}" "${count}"
   if ((count < ANNOTATIONS_PER_KIND)); then
     _report_command "$@"
   elif ((count == ANNOTATIONS_PER_KIND)); then
-    _report_set "held_$kind" "$(_report_command "$@")"
+    _report_set "held_${kind}" "$(_report_command "$@")"
   fi
 }
 
@@ -111,14 +111,14 @@ has_problems() {
 # _report_flush_kind KIND [WHERE]: the last annotation of KIND, once.
 _report_flush_kind() {
   local kind=$1 where=${2-} more
-  more=$(($(_report_count "$kind") - ANNOTATIONS_PER_KIND + 1))
+  more=$(($(_report_count "${kind}") - ANNOTATIONS_PER_KIND + 1))
   ((more >= 1)) || return 0
-  [[ -z $(_report_get "flushed_$kind") ]] || return 0
-  _report_set "flushed_$kind" 1
+  [[ -z $(_report_get "flushed_${kind}") ]] || return 0
+  _report_set "flushed_${kind}" 1
   if ((more == 1)); then
-    _report_get "held_$kind"
+    _report_get "held_${kind}"
   else
-    _report_command "$kind" "$more more ${kind}s are not shown here${where:+; $where}."
+    _report_command "${kind}" "${more} more ${kind}s are not shown here${where:+; ${where}}."
   fi
 }
 
@@ -129,7 +129,7 @@ _report_flush_kind() {
 flush() {
   local where=${1-} kind
   for kind in "${_REPORT_KINDS[@]}"; do
-    _report_flush_kind "$kind" "$where"
+    _report_flush_kind "${kind}" "${where}"
   done
 }
 
@@ -155,5 +155,5 @@ code_span() {
   text=${text//$'\r'/ }
   text=${text//\`/\'}
   text=${text//|/\\|}
-  printf '%s%s%s\n' "$tick" "$text" "$tick"
+  printf '%s%s%s\n' "${tick}" "${text}" "${tick}"
 }

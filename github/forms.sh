@@ -20,17 +20,17 @@ readonly TOKEN_FORM='^[A-Za-z0-9_.-]+$'
 # matches before a final line break, so the form is anchored with \A and \z.
 is_repository_list() {
   local list=$1
-  jq -e --arg form "$REPOSITORY_FORM" \
+  jq -e --arg form "${REPOSITORY_FORM}" \
     '("\\A" + ($form | ltrimstr("^") | rtrimstr("$")) + "\\z") as $whole
     | type == "array" and all(.[]; type == "string" and test($whole))' \
-    <<<"$list" >/dev/null 2>&1
+    <<<"${list}" >/dev/null 2>&1
 }
 
 # lists_repository LIST REPOSITORY: the JSON array LIST has REPOSITORY,
 # compared without case as GitHub does.
 lists_repository() {
   local list=$1 repository=$2
-  jq -e --arg repository "$repository" \
+  jq -e --arg repository "${repository}" \
     'any(.[]; ascii_downcase == ($repository | ascii_downcase))' \
-    <<<"$list" >/dev/null
+    <<<"${list}" >/dev/null
 }

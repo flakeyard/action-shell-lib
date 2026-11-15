@@ -29,18 +29,18 @@ readonly PARENT_COMPONENT='(^|/)\.\.(/|$)'
 # has no ".." component and is a directory.
 check_dir() {
   local name=$1 value=$2
-  [[ $value == /* ]] || fail "run-step.sh: $name '$value' is not an absolute path."
-  [[ ! $value =~ $PARENT_COMPONENT ]] || fail "run-step.sh: $name '$value' has a '..' component."
-  [[ -d $value ]] || fail "run-step.sh: $name '$value' is not a directory."
+  [[ ${value} == /* ]] || fail "run-step.sh: ${name} '${value}' is not an absolute path."
+  [[ ! ${value} =~ ${PARENT_COMPONENT} ]] || fail "run-step.sh: ${name} '${value}' has a '..' component."
+  [[ -d ${value} ]] || fail "run-step.sh: ${name} '${value}' is not a directory."
 }
 
 # check_names STEP VARIABLE...: fail unless STEP and every VARIABLE are names.
 check_names() {
   local step=$1 name
   shift
-  [[ $step =~ $STEP_FORM ]] || fail "run-step.sh: invalid step name '$step'."
+  [[ ${step} =~ ${STEP_FORM} ]] || fail "run-step.sh: invalid step name '${step}'."
   for name; do
-    [[ $name =~ $VARIABLE_FORM ]] || fail "run-step.sh: invalid variable name '$name'."
+    [[ ${name} =~ ${VARIABLE_FORM} ]] || fail "run-step.sh: invalid variable name '${name}'."
   done
 }
 
@@ -50,7 +50,7 @@ step_variables() {
   local name
   vars=()
   for name in "$@" SHELL_LIB; do
-    if [[ -v $name ]]; then vars+=("$name=${!name}"); fi
+    if [[ -v ${name} ]]; then vars+=("${name}=${!name}"); fi
   done
 }
 
@@ -58,7 +58,7 @@ step_variables() {
 step_dir=$1 step=$2
 shift 2
 check_dir SHELL_LIB "${SHELL_LIB-}"
-check_dir STEP_DIR "$step_dir"
-check_names "$step" "$@"
+check_dir STEP_DIR "${step_dir}"
+check_names "${step}" "$@"
 step_variables "$@"
-exec /usr/bin/env -i "${vars[@]}" /usr/bin/bash -p "$step_dir/$step.sh"
+exec /usr/bin/env -i "${vars[@]}" /usr/bin/bash -p "${step_dir}/${step}.sh"

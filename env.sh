@@ -18,7 +18,7 @@ readonly SYSTEM_PATH=/usr/sbin:/usr/bin:/sbin:/bin
 step_environment() {
   shopt -s inherit_errexit
   JOB_PATH=${PATH-}
-  export PATH=$SYSTEM_PATH LC_ALL=C
+  export PATH=${SYSTEM_PATH} LC_ALL=C
 }
 
 # job_tool NAME: print the absolute path of the executable NAME, a command
@@ -28,10 +28,10 @@ step_environment() {
 # directory of the step would then choose it.
 job_tool() {
   local name=$1 path
-  if [[ $name != */* ]] && path=$(PATH=${JOB_PATH-} type -P -- "$name") && [[ $path == /* ]]; then
-    printf '%s\n' "$path"
+  if [[ ${name} != */* ]] && path=$(PATH=${JOB_PATH-} type -P -- "${name}") && [[ ${path} == /* ]]; then
+    printf '%s\n' "${path}"
   else
-    printf 'job_tool: no %s on the PATH of the job\n' "$name" >&2
+    printf 'job_tool: no %s on the PATH of the job\n' "${name}" >&2
     return 1
   fi
 }

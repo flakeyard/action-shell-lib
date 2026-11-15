@@ -14,7 +14,7 @@ readonly WORKFLOW_DEFS='
 # as JSON.
 load_workflow() {
   local file=$1
-  load_yaml ".github/workflows/$file"
+  load_yaml ".github/workflows/${file}"
 }
 
 # workflow_check WORKFLOW NAME FILTER [JQ_ARG...]: test NAME: FILTER, a jq
@@ -24,5 +24,5 @@ load_workflow() {
 workflow_check() {
   local workflow=$1 name=$2 filter=$3
   shift 3
-  yaml_check "$workflow" "$name" "$WORKFLOW_DEFS $filter" "$@"
+  yaml_check "${workflow}" "${name}" "${WORKFLOW_DEFS} ${filter}" "$@"
 }

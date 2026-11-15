@@ -9,7 +9,7 @@ shell_state() {
   set -o
   shopt
   trap -p
-  printf 'PATH=%s\n' "$PATH"
+  printf 'PATH=%s\n' "${PATH}"
 }
 
 # writable_variables_since NAMES: print the variables that are not in NAMES,
@@ -17,8 +17,8 @@ shell_state() {
 writable_variables_since() {
   local before=$1 name
   for name in $(compgen -v); do
-    [[ $'\n'$before$'\n' != *$'\n'$name$'\n'* ]] || continue
-    [[ $(declare -p "$name") == "declare -"*r* ]] || printf '%s\n' "$name"
+    [[ $'\n'${before}$'\n' != *$'\n'${name}$'\n'* ]] || continue
+    [[ $(declare -p "${name}") == "declare -"*r* ]] || printf '%s\n' "${name}"
   done
 }
 
@@ -30,11 +30,11 @@ sources_cleanly() {
   state=$(shell_state)
   variables=$(compgen -v)
   # shellcheck source=/dev/null
-  source "$code_root/$module" && source "$code_root/$module" || return 1
-  [[ $(shell_state) == "$state" ]] || echo "$module changed the shell"
-  writable=$(writable_variables_since "$variables")
-  [[ -z $writable ]] || echo "$module added variables: $writable"
-  [[ -z $(ls -A) ]] || echo "$module wrote files"
+  source "${code_root}/${module}" && source "${code_root}/${module}" || return 1
+  [[ $(shell_state) == "${state}" ]] || echo "${module} changed the shell"
+  writable=$(writable_variables_since "${variables}")
+  [[ -z ${writable} ]] || echo "${module} added variables: ${writable}"
+  [[ -z $(ls -A) ]] || echo "${module} wrote files"
 }
 
 # The script of the library, which is run, not sourced.
@@ -52,22 +52,22 @@ defines_functions() {
   local module=$1 before after
   before=$(declare -F | wc -l)
   # shellcheck source=/dev/null
-  source "$code_root/$module"
+  source "${code_root}/${module}"
   after=$(declare -F | wc -l)
   ((after > before))
 }
 
 while IFS= read -r module; do
-  [[ $module != "$RUN_SCRIPT" ]] || continue
+  [[ ${module} != "${RUN_SCRIPT}" ]] || continue
   setup
-  run_lib "modules: $module only defines" ok "" sources_cleanly "$module"
+  run_lib "modules: ${module} only defines" ok "" sources_cleanly "${module}"
   expect stdout ""
-  [[ -z $current || ! -s $work/stderr ]] || report "stderr: $(<"$work/stderr")"
+  [[ -z ${current} || ! -s ${work}/stderr ]] || report "stderr: $(<"${work}/stderr")"
   finish
 
   setup
   apply "${GUARD_VARS[@]}"
-  run_lib "modules: $module ignores variables of the environment" ok "" \
-    defines_functions "$module"
+  run_lib "modules: ${module} ignores variables of the environment" ok "" \
+    defines_functions "${module}"
   finish
 done < <(library_modules)

@@ -40,8 +40,8 @@ readonly ACTION_DEFS='
 action_check() {
   local action=$1 file=$2 name=$3 filter=$4
   shift 4
-  yaml_check "$action" "$file: $name" "$ACTION_DEFS $filter" \
-    --arg input_lib "$INPUT_LIBRARY" --arg step_lib "$STEP_LIBRARY" "$@"
+  yaml_check "${action}" "${file}: ${name}" "${ACTION_DEFS} ${filter}" \
+    --arg input_lib "${INPUT_LIBRARY}" --arg step_lib "${STEP_LIBRARY}" "$@"
 }
 
 # check_action_steps FILE: test that FILE, an action.yml in code_root, gets
@@ -54,16 +54,16 @@ action_check() {
 # The names of the tests start with FILE.
 check_action_steps() {
   local file=$1 action
-  action=$(load_yaml "$file")
-  action_check "$action" "$file" "the library is the first step, pinned by commit, or the input shell-lib" \
+  action=$(load_yaml "${file}")
+  action_check "${action}" "${file}" "the library is the first step, pinned by commit, or the input shell-lib" \
     'if internal then .inputs["shell-lib"].required == true
     and all(.runs.steps[]; .uses // "" | test($any; "i") | not)
     else .runs.steps[0] | .id == "lib" and (.uses | test($form)) end' \
-    --arg form "$LIBRARY_USES_FORM" --arg any "$LIBRARY_ANY_USES_FORM"
-  action_check "$action" "$file" "every step runs its script through run-step.sh" \
+    --arg form "${LIBRARY_USES_FORM}" --arg any "${LIBRARY_ANY_USES_FORM}"
+  action_check "${action}" "${file}" "every step runs its script through run-step.sh" \
     'library_path as $lib | script_steps | all(.shell == $shell and .env.SHELL_LIB == $lib
-    and (.run | test($run)))' --arg shell "$STEP_SHELL" --arg run "$STEP_RUN_FORM"
-  action_check "$action" "$file" "every step names its variables on its run line" \
+    and (.run | test($run)))' --arg shell "${STEP_SHELL}" --arg run "${STEP_RUN_FORM}"
+  action_check "${action}" "${file}" "every step names its variables on its run line" \
     'all(script_steps[]; (.run | split(" ")) as $words
     | all(.env // {} | keys[] | select(. != "SHELL_LIB"); IN($words[])))'
 }
@@ -72,11 +72,11 @@ check_action_steps() {
 # where GitHub reads them, the action and the workflows and actions under
 # .github, one per line.
 library_uses() (
-  cd -- "$code_root" || exit 2
+  cd -- "${code_root}" || exit 2
   shopt -s globstar nullglob
   for file in action.y{a,}ml .github/workflows/*.y{a,}ml .github/actions/**/action.y{a,}ml; do
-    [[ -f $file ]] || continue
-    load_yaml "$file" | jq -r --arg form "$LIBRARY_ANY_USES_FORM" \
+    [[ -f ${file} ]] || continue
+    load_yaml "${file}" | jq -r --arg form "${LIBRARY_ANY_USES_FORM}" \
       '.. | .uses? // empty | strings | select(test($form; "i"))'
   done
 )
@@ -89,6 +89,6 @@ check_library_pins() {
   current="action: every use of the library names one commit"
   # Two or more lines, or none, do not match the form.
   uses=$(library_uses | sort -u)
-  [[ $uses =~ $LIBRARY_USES_FORM ]] || report "uses: ${uses//$'\n'/, }"
+  [[ ${uses} =~ ${LIBRARY_USES_FORM} ]] || report "uses: ${uses//$'\n'/, }"
   finish
 }

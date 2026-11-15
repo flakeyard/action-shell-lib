@@ -16,7 +16,7 @@ require_yq() {
   local file=$1
   have_yq && return 0
   setup
-  current="$file: yq is installed"
+  current="${file}: yq is installed"
   report "the static tests need mikefarah yq v4; run them with: nix shell nixpkgs#yq-go -c tests/run.sh"
   finish
   return 1
@@ -25,7 +25,7 @@ require_yq() {
 # load_yaml FILE: print FILE, a path in code_root, as JSON.
 load_yaml() {
   local file=$1
-  yq -o=json . "$code_root/$file"
+  yq -o=json . "${code_root}/${file}"
 }
 
 # yaml_check JSON NAME FILTER [JQ_ARG...]: test NAME: FILTER, a jq expression
@@ -34,7 +34,7 @@ yaml_check() {
   local json=$1 name=$2 filter=$3
   shift 3
   setup
-  current=$name
-  jq -e "$@" "$filter" <<<"$json" >/dev/null || report "not true: $filter"
+  current=${name}
+  jq -e "$@" "${filter}" <<<"${json}" >/dev/null || report "not true: ${filter}"
   finish
 }

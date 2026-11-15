@@ -18,21 +18,21 @@ readonly AS_ACTION=tests/bin/as-action
 # environment; and SHELL_LIB.
 step_setup() {
   setup
-  apply SHELL_LIB="$root"
-  mkdir "$work/step"
-  cat >"$work/step/probe.sh" <<'PROBE'
+  apply SHELL_LIB="${root}"
+  mkdir "${work}/step"
+  cat >"${work}/step/probe.sh" <<'PROBE'
 mapfile -t functions < <(declare -F)
 printf 'functions: %s\n' "${#functions[@]}"
 printf 'xtrace: %s\n' "$([[ -o xtrace ]] && echo on || echo off)"
 printf 'child functions: %s\n' "$(/usr/bin/bash -c 'mapfile -t f < <(declare -F); echo "${#f[@]}"')"
 /usr/bin/env
 PROBE
-  echo 'echo STEP-RAN' >"$work/step/ran.sh"
+  echo 'echo STEP-RAN' >"${work}/step/ran.sh"
 }
 
 step_setup
-run "run-step: no functions or options of the job" ok "$AS_ACTION" \
-  "${HOSTILE_VARS[@]}" -- "$work/step" probe
+run "run-step: no functions or options of the job" ok "${AS_ACTION}" \
+  "${HOSTILE_VARS[@]}" -- "${work}/step" probe
 expect message "functions: 0"
 expect message "xtrace: off"
 expect message "child functions: 0"
@@ -48,36 +48,36 @@ finish
 # script_path_setup: step_setup with that directory in $work/evil.
 script_path_setup() {
   step_setup
-  mkdir "$work/evil"
-  printf 'echo EVIL-RAN; : >%q\n' "$work/ran" >"$work/evil/report.sh"
+  mkdir "${work}/evil"
+  printf 'echo EVIL-RAN; : >%q\n' "${work}/ran" >"${work}/evil/report.sh"
   script_path_vars=(
-    BASH_SOURCE="$work/evil/run-step.sh" BASH_ARGV0="$work/evil/run-step.sh"
+    BASH_SOURCE="${work}/evil/run-step.sh" BASH_ARGV0="${work}/evil/run-step.sh"
   )
 }
 
 script_path_setup
-run "run-step: the environment does not name the library" ok "$AS_ACTION" \
-  "${script_path_vars[@]}" -- "$work/step" probe
+run "run-step: the environment does not name the library" ok "${AS_ACTION}" \
+  "${script_path_vars[@]}" -- "${work}/step" probe
 expect message "functions: 0"
 expect no-message "EVIL-RAN"
 expect no-message "BASH_SOURCE="
-[[ -z $current || ! -e $work/ran ]] || report "run-step.sh sourced a module of the environment"
+[[ -z ${current} || ! -e ${work}/ran ]] || report "run-step.sh sourced a module of the environment"
 finish
 
 script_path_setup
 run "run-step: the environment does not name the library of the checks" fail \
-  "$AS_ACTION" "${script_path_vars[@]}" -- "$work/step" ../step/ran
+  "${AS_ACTION}" "${script_path_vars[@]}" -- "${work}/step" ../step/ran
 expect message "::error::run-step.sh: invalid step name '../step/ran'."
 expect no-message "EVIL-RAN"
 expect no-message "STEP-RAN"
-[[ -z $current || ! -e $work/ran ]] || report "run-step.sh sourced a module of the environment"
+[[ -z ${current} || ! -e ${work}/ran ]] || report "run-step.sh sourced a module of the environment"
 finish
 
 step_setup
-run "run-step: the variables the step names, and SHELL_LIB" ok "$AS_ACTION" \
-  A=$'a\nb' B=b -- "$work/step" probe A C
+run "run-step: the variables the step names, and SHELL_LIB" ok "${AS_ACTION}" \
+  A=$'a\nb' B=b -- "${work}/step" probe A C
 expect message $'A=a\nb'
-expect message "SHELL_LIB=$root"
+expect message "SHELL_LIB=${root}"
 expect no-message "B=b"
 expect no-message "C="
 expect no-message "FIXTURES="
@@ -86,21 +86,21 @@ finish
 # The loader reads its variables when the first bash of a step starts, before
 # run-step.sh: they reach that process, but not the step.
 step_setup
-run "run-step: loader variables reach only the first process" ok "$AS_ACTION" \
-  LD_PRELOAD=/nonexistent/preload.so LD_LIBRARY_PATH=/nonexistent -- "$work/step" probe
+run "run-step: loader variables reach only the first process" ok "${AS_ACTION}" \
+  LD_PRELOAD=/nonexistent/preload.so LD_LIBRARY_PATH=/nonexistent -- "${work}/step" probe
 expect message "from LD_PRELOAD cannot be preloaded"
-[[ -z $current ]] || ! grep -E '^LD_' "$work/stdout" \
+[[ -z ${current} ]] || ! grep -E '^LD_' "${work}/stdout" \
   || report "the step got variables of the loader"
 finish
 
 step_setup
-run "run-step: only a step name" fail "$AS_ACTION" -- "$work/step" ../step/ran
+run "run-step: only a step name" fail "${AS_ACTION}" -- "${work}/step" ../step/ran
 expect message "::error::run-step.sh: invalid step name '../step/ran'."
 expect no-message "STEP-RAN"
 finish
 
 step_setup
-run "run-step: only variable names" fail "$AS_ACTION" -- "$work/step" ran 'A[$(echo X)]'
+run "run-step: only variable names" fail "${AS_ACTION}" -- "${work}/step" ran 'A[$(echo X)]'
 expect message "invalid variable name 'A[\$(echo X)]'"
 expect no-message "STEP-RAN"
 finish
@@ -108,9 +108,9 @@ finish
 # Directories that run-step.sh rejects: NAME, VALUE in $work, and the reason.
 while IFS='|' read -r name value reason; do
   step_setup
-  run "run-step: $name '$value' $reason" fail "$AS_ACTION" \
-    "$name=${value//@work/$work}" -- "${value//@work/$work}" ran
-  expect message "$reason"
+  run "run-step: ${name} '${value}' ${reason}" fail "${AS_ACTION}" \
+    "${name}=${value//@work/${work}}" -- "${value//@work/${work}}" ran
+  expect message "${reason}"
   expect no-message "STEP-RAN"
   finish
 done <<'CASES'
@@ -123,13 +123,13 @@ SHELL_LIB|@work/step/ran.sh|is not a directory
 CASES
 
 step_setup
-run "run-step: needs SHELL_LIB" fail "$AS_ACTION" SHELL_LIB= -- "$work/step" ran
+run "run-step: needs SHELL_LIB" fail "${AS_ACTION}" SHELL_LIB= -- "${work}/step" ran
 expect message "SHELL_LIB '' is not an absolute path"
 expect no-message "STEP-RAN"
 finish
 
 step_setup
-run "run-step: needs a step" fail "$AS_ACTION" -- "$work/step"
+run "run-step: needs a step" fail "${AS_ACTION}" -- "${work}/step"
 expect message "usage: run-step.sh STEP_DIR STEP [VARIABLE...]"
 finish
 
@@ -138,26 +138,26 @@ finish
 # hostile_job_setup: step_setup with them in hostile_job.
 hostile_job_setup() {
   step_setup
-  mapfile -t hostile_job < <(hostile_environment "$work/ran")
+  mapfile -t hostile_job < <(hostile_environment "${work}/ran")
   local kind
   for kind in error warning notice; do
-    hostile_job+=("_report_count_$kind=a[\$(touch $work/ran)]" "_report_held_$kind=::$kind::forged")
+    hostile_job+=("_report_count_${kind}=a[\$(touch ${work}/ran)]" "_report_held_${kind}=::${kind}::forged")
   done
 }
 
 hostile_job_setup
-run "run-step: a hostile environment does not stop the checks" fail "$AS_ACTION" \
-  "${hostile_job[@]}" -- "$work/step" ../step/ran
+run "run-step: a hostile environment does not stop the checks" fail "${AS_ACTION}" \
+  "${hostile_job[@]}" -- "${work}/step" ../step/ran
 expect message "::error::run-step.sh: invalid step name '../step/ran'."
 expect no-message "forged"
 expect no-message "STEP-RAN"
-[[ -z $current || ! -e $work/ran ]] || report "the environment ran a command"
+[[ -z ${current} || ! -e ${work}/ran ]] || report "the environment ran a command"
 finish
 
 hostile_job_setup
-run "run-step: a hostile environment does not reach the step" ok "$AS_ACTION" \
-  "${hostile_job[@]}" -- "$work/step" probe
+run "run-step: a hostile environment does not reach the step" ok "${AS_ACTION}" \
+  "${hostile_job[@]}" -- "${work}/step" probe
 expect no-message "_report_"
 expect no-message "_API_"
-[[ -z $current || ! -e $work/ran ]] || report "the environment ran a command"
+[[ -z ${current} || ! -e ${work}/ran ]] || report "the environment ran a command"
 finish

@@ -46,16 +46,16 @@ readonly _API_METHOD_FLAG='^-[hi]*X|^--method(=|$)'
 # and the response body in DIR, may pass on its own.
 _api_is_transient() {
   local dir=$1
-  grep -Eq "$_API_TRANSIENT_ERROR" "$dir/error" \
-    || grep -Eq "$_API_TRANSIENT_GRAPHQL_ERROR" "$dir/body"
+  grep -Eq "${_API_TRANSIENT_ERROR}" "${dir}/error" \
+    || grep -Eq "${_API_TRANSIENT_GRAPHQL_ERROR}" "${dir}/body"
 }
 
 # _api_is_query ARG...: the fields ARG... of gh api, given with -f or -F,
 # have a query field whose text is a GraphQL query.
 _api_is_query() {
   while (($# >= 2)); do
-    if [[ $1 =~ $_API_FIELD_FLAG && $2 == query=* ]]; then
-      [[ ${2#query=} =~ $_API_GRAPHQL_QUERY ]]
+    if [[ $1 =~ ${_API_FIELD_FLAG} && $2 == query=* ]]; then
+      [[ ${2#query=} =~ ${_API_GRAPHQL_QUERY} ]]
       return
     fi
     shift
@@ -67,8 +67,8 @@ _api_is_query() {
 _api_is_idempotent() {
   local method=$1 path=$2
   shift 2
-  [[ $method =~ $_API_IDEMPOTENT_METHOD ]] && return 0
-  [[ $method == POST && $path == "$_API_GRAPHQL" ]] && _api_is_query "$@"
+  [[ ${method} =~ ${_API_IDEMPOTENT_METHOD} ]] && return 0
+  [[ ${method} == POST && ${path} == "${_API_GRAPHQL}" ]] && _api_is_query "$@"
 }
 
 # _api_should_retry STATUS ATTEMPT ATTEMPTS DIR: true when the attempt
@@ -77,7 +77,7 @@ _api_is_idempotent() {
 _api_should_retry() {
   local status=$1 attempt=$2 attempts=$3 dir=$4
   ((status != 0 && attempt < attempts)) || return 1
-  _api_is_transient "$dir"
+  _api_is_transient "${dir}"
 }
 
 # _api_result DIR STATUS: print the body in DIR after success; otherwise
@@ -85,11 +85,11 @@ _api_should_retry() {
 _api_result() {
   local dir=$1 status=$2
   if ((status == 0)); then
-    cat -- "$dir/body"
-  elif grep -q "$_API_NOT_FOUND_ERROR" "$dir/error"; then
-    return "$NOT_FOUND"
+    cat -- "${dir}/body"
+  elif grep -q "${_API_NOT_FOUND_ERROR}" "${dir}/error"; then
+    return "${NOT_FOUND}"
   else
-    cat -- "$dir/error" >&2
+    cat -- "${dir}/error" >&2
     return 1
   fi
 }
@@ -100,20 +100,20 @@ _api_result() {
 # of a request that changes nothing are retried, _API_ATTEMPTS times in all;
 # other requests are tried once.
 api_request() {
-  local method=$1 path=$2 tmp status attempt=1 attempts=1 delay=$_API_RETRY_DELAY result=0
+  local method=$1 path=$2 tmp status attempt=1 attempts=1 delay=${_API_RETRY_DELAY} result=0
   shift 2
-  if _api_is_idempotent "$method" "$path" "$@"; then attempts=$_API_ATTEMPTS; fi
+  if _api_is_idempotent "${method}" "${path}" "$@"; then attempts=${_API_ATTEMPTS}; fi
   tmp=$(mktemp -d)
   while :; do
     status=0
-    gh api -X "$method" "$path" "$@" >"$tmp/body" 2>"$tmp/error" || status=$?
-    _api_should_retry "$status" "$attempt" "$attempts" "$tmp" || break
-    sleep "$delay"
+    gh api -X "${method}" "${path}" "$@" >"${tmp}/body" 2>"${tmp}/error" || status=$?
+    _api_should_retry "${status}" "${attempt}" "${attempts}" "${tmp}" || break
+    sleep "${delay}"
     attempt=$((attempt + 1)) delay=$((delay * 2))
   done
-  _api_result "$tmp" "$status" || result=$?
-  rm -rf -- "$tmp"
-  return "$result"
+  _api_result "${tmp}" "${status}" || result=$?
+  rm -rf -- "${tmp}"
+  return "${result}"
 }
 
 # _api_sets_method ARG...: one of the arguments of gh api ARG... sets the
@@ -121,7 +121,7 @@ api_request() {
 _api_sets_method() {
   local arg
   for arg; do
-    [[ ! $arg =~ $_API_METHOD_FLAG ]] || return 0
+    [[ ! ${arg} =~ ${_API_METHOD_FLAG} ]] || return 0
   done
   return 1
 }
@@ -134,12 +134,12 @@ api_get() {
   local path=$1 status=0
   shift
   if _api_sets_method "$@"; then
-    printf 'api_get %s: the method is GET, the arguments must not set it: %s\n' "$path" "$*" >&2
+    printf 'api_get %s: the method is GET, the arguments must not set it: %s\n' "${path}" "$*" >&2
     return 1
   fi
-  api_request GET "$path" "$@" || status=$?
+  api_request GET "${path}" "$@" || status=$?
   if ((status == NOT_FOUND)); then
-    printf '%s: Not Found (HTTP 404)\n' "$path" >&2
+    printf '%s: Not Found (HTTP 404)\n' "${path}" >&2
   fi
   ((status == 0)) || return 1
 }

@@ -16,10 +16,10 @@ readonly TIME_ARGUMENT_FORM='^(-[uR]*[dfr]|--(date|file|reference)(=|$))'
 system_date() {
   local self dir dirs
   self=$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)
-  IFS=: read -ra dirs <<<"$PATH"
+  IFS=: read -ra dirs <<<"${PATH}"
   for dir in "${dirs[@]}"; do
-    if [[ $dir != "$self" && -x $dir/date ]]; then
-      printf '%s\n' "$dir/date"
+    if [[ ${dir} != "${self}" && -x ${dir}/date ]]; then
+      printf '%s\n' "${dir}/date"
       return 0
     fi
   done
@@ -31,7 +31,7 @@ system_date() {
 gives_time() {
   local arg
   for arg; do
-    [[ ! $arg =~ $TIME_ARGUMENT_FORM ]] || return 0
+    [[ ! ${arg} =~ ${TIME_ARGUMENT_FORM} ]] || return 0
   done
   return 1
 }
@@ -40,16 +40,16 @@ gives_time() {
 fixed_now() {
   local file
   file=$(fixtures_dir)/now
-  [[ -f $file ]] || {
+  [[ -f ${file} ]] || {
     echo "stub date: the test fixed no time; call fixed_time" >&2
     return 1
   }
-  printf '%s\n' "$(<"$file")"
+  printf '%s\n' "$(<"${file}")"
 }
 
 date=$(system_date)
 if gives_time "$@"; then
-  exec "$date" "$@"
+  exec "${date}" "$@"
 fi
 now=$(fixed_now)
-exec "$date" -d "$now" "$@"
+exec "${date}" -d "${now}" "$@"

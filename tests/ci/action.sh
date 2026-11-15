@@ -4,8 +4,8 @@
 # Inputs (environment): LIB_PATH, the output path of the step.
 set -euo pipefail
 
-if [[ ! -f $LIB_PATH/run-step.sh ]]; then
-  echo "::error::path '$LIB_PATH' is not a directory with run-step.sh."
+if [[ ! -f ${LIB_PATH}/run-step.sh ]]; then
+  echo "::error::path '${LIB_PATH}' is not a directory with run-step.sh."
   exit 1
 fi
-echo "The action gave the directory $LIB_PATH."
+echo "The action gave the directory ${LIB_PATH}."

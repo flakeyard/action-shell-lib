@@ -7,16 +7,16 @@
 # workflow_fixture: $work/repo with the workflow test.yaml, whose job has a
 # condition over several lines and whose step has none.
 workflow_fixture() {
-  mkdir -p "$work/repo/.github/workflows"
+  mkdir -p "${work}/repo/.github/workflows"
   printf '%s\n' "jobs:" "  unit:" "    if: >-" "      \${{ always()" "        &&  !cancelled() }}" \
-    "    steps:" "      - run: echo" >"$work/repo/.github/workflows/test.yaml"
+    "    steps:" "      - run: echo" >"${work}/repo/.github/workflows/test.yaml"
 }
 
 # workflow_checks FILTER [JQ_ARG...]: workflow_check of FILTER over test.yaml
 # of $work/repo, as a suite of its own; prints its result and fails when it
 # fails.
 workflow_checks() {
-  failed=0 passed=0 code_root=$work/repo
+  failed=0 passed=0 code_root=${work}/repo
   workflow_check "$(load_workflow test.yaml)" "workflow: probe" "$@"
   conclude
 }
@@ -26,9 +26,9 @@ if require_yq internal/testing/workflow.sh; then
   while IFS='#' read -r filter arg expected; do
     setup
     workflow_fixture
-    read -ra args <<<"$arg"
-    run_lib "workflow: $filter ${arg:+with $arg }is $expected" "$expected" "" \
-      workflow_checks "$filter" "${args[@]}"
+    read -ra args <<<"${arg}"
+    run_lib "workflow: ${filter} ${arg:+with ${arg} }is ${expected}" "${expected}" "" \
+      workflow_checks "${filter}" "${args[@]}"
     finish
   done <<'CASES'
 .jobs.unit | condition == "${{ always() && !cancelled() }}"##ok

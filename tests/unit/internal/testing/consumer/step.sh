@@ -15,8 +15,8 @@ exit "${STATUS:-0}"'
 # and STATUS, summary, with B, and leaky, with BASH_SOURCE, from which it
 # finds the module scripts/lib/util.sh.
 step_fixture() {
-  mkdir -p "$work/consumer/scripts/step" "$work/consumer/scripts/lib"
-  cat >"$work/consumer/action.yml" <<'ACTION'
+  mkdir -p "${work}/consumer/scripts/step" "${work}/consumer/scripts/lib"
+  cat >"${work}/consumer/action.yml" <<'ACTION'
 runs:
   using: composite
   steps:
@@ -41,22 +41,22 @@ runs:
         /usr/bin/bash -p "$SHELL_LIB/run-step.sh"
         "$GITHUB_ACTION_PATH/scripts/step" leaky BASH_SOURCE
 ACTION
-  printf '%s\n' "$PROBE" >"$work/consumer/scripts/step/check.sh"
-  printf '%s\n' "$PROBE" >"$work/consumer/scripts/step/summary.sh"
-  echo 'source "${BASH_SOURCE[0]%/*}/../lib/util.sh"' >"$work/consumer/scripts/step/leaky.sh"
-  echo ':' >"$work/consumer/scripts/lib/util.sh"
-  apply SHELL_LIB="$root"
+  printf '%s\n' "${PROBE}" >"${work}/consumer/scripts/step/check.sh"
+  printf '%s\n' "${PROBE}" >"${work}/consumer/scripts/step/summary.sh"
+  echo 'source "${BASH_SOURCE[0]%/*}/../lib/util.sh"' >"${work}/consumer/scripts/step/leaky.sh"
+  echo ':' >"${work}/consumer/scripts/lib/util.sh"
+  apply SHELL_LIB="${root}"
 }
 
 # hostile_suite LIBRARY STEP: run_hostile of STEP of $work/consumer with the
 # library LIBRARY, as a suite of its own; prints its results and fails when
 # its test fails.
 hostile_suite() {
-  local library=$1 step=$2 consumer=$work/consumer
-  failed=0 passed=0 code_root=$consumer
+  local library=$1 step=$2 consumer=${work}/consumer
+  failed=0 passed=0 code_root=${consumer}
   setup
-  apply SHELL_LIB="$library"
-  run_hostile "hostile" ok "$consumer" "$step"
+  apply SHELL_LIB="${library}"
+  run_hostile "hostile" ok "${consumer}" "${step}"
   finish
   conclude
 }
@@ -64,7 +64,7 @@ hostile_suite() {
 # missing_step: run_step of a step that action.yml of $work/consumer does not
 # run.
 missing_step() {
-  run_step "missing" ok "$work/consumer" none
+  run_step "missing" ok "${work}/consumer" none
 }
 
 if require_yq internal/testing/consumer/step.sh; then
@@ -73,18 +73,18 @@ if require_yq internal/testing/consumer/step.sh; then
   stub_variables=(OWN_STUB)
   apply A=a B=b OWN_STUB=o
   run_step "consumer step: the variables of the run line and of the stubs" ok \
-    "$work/consumer" check
+    "${work}/consumer" check
   stub_variables=()
   expect message "A=a"
   expect message "B=unset"
-  expect message "CALLS=$work/calls"
+  expect message "CALLS=${work}/calls"
   expect message "OWN_STUB=o"
   finish
 
   setup
   step_fixture
   apply A=a B=b
-  run_step "consumer step: the variables of its own run line" ok "$work/consumer" summary
+  run_step "consumer step: the variables of its own run line" ok "${work}/consumer" summary
   expect message "A=unset"
   expect message "B=b"
   expect message "OWN_STUB=unset"
@@ -92,38 +92,38 @@ if require_yq internal/testing/consumer/step.sh; then
 
   setup
   step_fixture
-  run_step "consumer step: the status of the step" fail "$work/consumer" check STATUS=3
+  run_step "consumer step: the status of the step" fail "${work}/consumer" check STATUS=3
   finish
 
   setup
   step_fixture
   run_lib "consumer step: a step that action.yml does not run fails" fail "" missing_step
-  expect message "run_step: no one step none in $work/consumer/action.yml"
+  expect message "run_step: no one step none in ${work}/consumer/action.yml"
   finish
 
   setup
   step_fixture
   run_hostile "consumer step: run_hostile passes a step that the environment does not reach" \
-    ok "$work/consumer" check
+    ok "${work}/consumer" check
   finish
 
   setup
   step_fixture
   run_lib "consumer step: run_hostile fails a step that names BASH_SOURCE" fail "" \
-    hostile_suite "$root" leaky
-  expect message "FAIL hostile: the environment ran code: $work/consumer/scripts/lib/util.sh"
+    hostile_suite "${root}" leaky
+  expect message "FAIL hostile: the environment ran code: ${work}/consumer/scripts/lib/util.sh"
   finish
 
   setup
   step_fixture
-  cp -R -- "$root" "$work/library"
-  sed -i -e 's|"${0%/\*}/report.sh"|"${BASH_SOURCE[0]%/*}/report.sh"|' "$work/library/run-step.sh"
-  if ! grep -qF 'BASH_SOURCE[0]%/*}/report.sh' "$work/library/run-step.sh"; then
+  cp -R -- "${root}" "${work}/library"
+  sed -i -e 's|"${0%/\*}/report.sh"|"${BASH_SOURCE[0]%/*}/report.sh"|' "${work}/library/run-step.sh"
+  if ! grep -qF 'BASH_SOURCE[0]%/*}/report.sh' "${work}/library/run-step.sh"; then
     echo "consumer step: cannot change run-step.sh" >&2
     exit 2
   fi
   run_lib "consumer step: run_hostile fails a library that finds its modules from BASH_SOURCE" \
-    fail "" hostile_suite "$work/library" check
-  expect message "FAIL hostile: the environment ran code: $work/consumer/scripts/step/report.sh"
+    fail "" hostile_suite "${work}/library" check
+  expect message "FAIL hostile: the environment ran code: ${work}/consumer/scripts/step/report.sh"
   finish
 fi

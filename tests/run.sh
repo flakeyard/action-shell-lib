@@ -9,29 +9,29 @@ shopt -s globstar
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 # shellcheck disable=SC2034 # read by internal/testing/checks.sh
-code_root=$root
+code_root=${root}
 # shellcheck source=../internal/testing/case.sh
-source "$root/internal/testing/case.sh"
+source "${root}/internal/testing/case.sh"
 # shellcheck source=../internal/testing/checks.sh
-source "$root/internal/testing/checks.sh"
+source "${root}/internal/testing/checks.sh"
 # shellcheck source=../internal/testing/fixtures.sh
-source "$root/internal/testing/fixtures.sh"
+source "${root}/internal/testing/fixtures.sh"
 # shellcheck source=../internal/testing/yaml.sh
-source "$root/internal/testing/yaml.sh"
+source "${root}/internal/testing/yaml.sh"
 # shellcheck source=../internal/testing/workflow.sh
-source "$root/internal/testing/workflow.sh"
+source "${root}/internal/testing/workflow.sh"
 # shellcheck source=../internal/testing/consumer/library.sh
-source "$root/internal/testing/consumer/library.sh"
+source "${root}/internal/testing/consumer/library.sh"
 # shellcheck source=../internal/testing/consumer/action.sh
-source "$root/internal/testing/consumer/action.sh"
+source "${root}/internal/testing/consumer/action.sh"
 # shellcheck source=../internal/testing/consumer/step.sh
-source "$root/internal/testing/consumer/step.sh"
+source "${root}/internal/testing/consumer/step.sh"
 # shellcheck source=lib/hostile.sh
-source "$root/tests/lib/hostile.sh"
+source "${root}/tests/lib/hostile.sh"
 
-for suite in "$root"/tests/unit/**/*.sh; do
+for suite in "${root}"/tests/unit/**/*.sh; do
   # shellcheck source=/dev/null
-  source "$suite"
+  source "${suite}"
 done
 
 conclude

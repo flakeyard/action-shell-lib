@@ -9,7 +9,7 @@
 
 # fixtures_dir: print the directory of the fixtures of the test.
 fixtures_dir() {
-  printf '%s\n' "${FIXTURES:-$work/fixtures}"
+  printf '%s\n' "${FIXTURES:-${work}/fixtures}"
 }
 
 # fixture_file PATH: print the file that answers the request PATH.
@@ -22,14 +22,14 @@ fixture_file() {
 # "HTTP 500" is a server error.
 fixture() {
   local path=$1 body=$2
-  printf '%s\n' "$body" >"$(fixture_file "$path")"
+  printf '%s\n' "${body}" >"$(fixture_file "${path}")"
 }
 
 # next_page PATH PAGE BODY: answer page PAGE, 2 or more, of the request PATH
 # with --paginate.
 next_page() {
   local path=$1 page=$2 body=$3
-  printf '%s\n' "$body" >"$(fixture_file "$path").$page"
+  printf '%s\n' "${body}" >"$(fixture_file "${path}").${page}"
 }
 
 # transient_failures PATH COUNT [KIND]: fail the next COUNT requests PATH with
@@ -37,7 +37,7 @@ next_page() {
 # error RATE_LIMITED).
 transient_failures() {
   local path=$1 count=$2 kind=${3:-gateway-timeout}
-  printf '%s %s\n' "$count" "$kind" >"$(fixture_file "$path").transient"
+  printf '%s %s\n' "${count}" "${kind}" >"$(fixture_file "${path}").transient"
 }
 
 # file_fixture REPOSITORY PATH REF CONTENT: answer the contents API of
@@ -45,26 +45,26 @@ transient_failures() {
 # 60 characters like the API does.
 file_fixture() {
   local repository=$1 path=$2 ref=$3 content=$4 encoded
-  encoded=$(printf '%s' "$content" | base64 -w 60 | paste -sd '#' | sed 's/#/\\n/g')
-  fixture "repos/$repository/contents/$path?ref=$ref" \
-    "{\"type\":\"file\",\"encoding\":\"base64\",\"content\":\"$encoded\"}"
+  encoded=$(printf '%s' "${content}" | base64 -w 60 | paste -sd '#' | sed 's/#/\\n/g')
+  fixture "repos/${repository}/contents/${path}?ref=${ref}" \
+    "{\"type\":\"file\",\"encoding\":\"base64\",\"content\":\"${encoded}\"}"
 }
 
 # variable_key NAME: print the name of the fixture of the variable NAME.
 variable_key() {
   local name=$1
-  printf 'variables/%s\n' "$name"
+  printf 'variables/%s\n' "${name}"
 }
 
 # variable_fixture NAME VALUE: answer gh variable get NAME with VALUE.
 variable_fixture() {
   local name=$1 value=$2
-  fixture "$(variable_key "$name")" "$value"
+  fixture "$(variable_key "${name}")" "${value}"
 }
 
 # fixed_time TIME: the time that the date stub takes as now, such as
 # 2026-11-10T12:00:00Z.
 fixed_time() {
   local time=$1
-  printf '%s\n' "$time" >"$(fixtures_dir)/now"
+  printf '%s\n' "${time}" >"$(fixtures_dir)/now"
 }

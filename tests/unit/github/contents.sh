@@ -6,7 +6,7 @@ lib=github/contents.sh
 setup
 apply REPO=o/r
 file_fixture o/r a.json aaa $'{\n  "a": 1\n}\n'
-run_lib "contents: a file is decoded" ok "$lib" file_at a.json aaa
+run_lib "contents: a file is decoded" ok "${lib}" file_at a.json aaa
 expect stdout $'{\n  "a": 1\n}'
 finish
 
@@ -15,8 +15,8 @@ finish
 while IFS='|' read -r name ref encoded_name encoded_ref; do
   setup
   apply REPO=o/r
-  file_fixture o/r "$encoded_name" "$encoded_ref" "x"
-  run_lib "contents: '$name' at '$ref' is encoded" ok "$lib" file_at "$name" "$ref"
+  file_fixture o/r "${encoded_name}" "${encoded_ref}" "x"
+  run_lib "contents: '${name}' at '${ref}' is encoded" ok "${lib}" file_at "${name}" "${ref}"
   expect stdout "x"
   finish
 done <<'CASES'
@@ -36,13 +36,13 @@ missing_is_not_found() {
 
 setup
 apply REPO=o/r
-run_lib "contents: a missing file is NOT_FOUND" ok "$lib" missing_is_not_found
+run_lib "contents: a missing file is NOT_FOUND" ok "${lib}" missing_is_not_found
 finish
 
 setup
 apply REPO=o/r
 fixture "repos/o/r/contents/nix?ref=aaa" '[{"type":"file","name":"a.nix"}]'
-run_lib "contents: a directory is an error" fail "$lib" file_at nix aaa
+run_lib "contents: a directory is an error" fail "${lib}" file_at nix aaa
 expect message "nix: not a file of at most 1 MB"
 finish
 
@@ -52,8 +52,8 @@ for name in a/../b ./b /b b/ a//b .. . ""; do
   setup
   apply REPO=o/r
   file_fixture o/r b aaa "x"
-  run_lib "contents: the path '$name' is rejected" fail "$lib" file_at "$name" aaa
-  expect message "'$name' has an empty, '.' or '..' segment"
+  run_lib "contents: the path '${name}' is rejected" fail "${lib}" file_at "${name}" aaa
+  expect message "'${name}' has an empty, '.' or '..' segment"
   expect no-message "x"
   finish
 done

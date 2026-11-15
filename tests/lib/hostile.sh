@@ -10,7 +10,7 @@
 module_names() {
   local modules=()
   mapfile -t modules < <(library_modules)
-  (cd -- "$root" && grep -ohE '(readonly [A-Za-z_][A-Za-z0-9_]*|\b_[A-Za-z][A-Za-z0-9_]*)' \
+  (cd -- "${root}" && grep -ohE '(readonly [A-Za-z_][A-Za-z0-9_]*|\b_[A-Za-z][A-Za-z0-9_]*)' \
     "${modules[@]}") | sed 's/^readonly //' | sort -u
 }
 
@@ -20,6 +20,6 @@ hostile_environment() {
   local marker=$1 name
   while IFS= read -r name; do
     # shellcheck disable=SC2016 # code for the modules, not expanded here
-    printf '%s=a[$(touch %s)]\n' "$name" "$marker"
+    printf '%s=a[$(touch %s)]\n' "${name}" "${marker}"
   done < <(module_names)
 }

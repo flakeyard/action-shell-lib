@@ -59,30 +59,30 @@ readonly ENV_FILE_FLAG_FORM='^(-f|--env-file)$'
 # and the end of its headers before it, like gh does.
 status_line() {
   local status=$1 message=$2
-  if $include; then printf 'HTTP/2.0 %s %s\n\r\n' "$status" "$message" >&"$headers"; fi
+  if ${include}; then printf 'HTTP/2.0 %s %s\n\r\n' "${status}" "${message}" >&"${headers}"; fi
 }
 
 # page_break: with -i, separate a page from the headers of the next one, like
 # gh does.
 page_break() {
-  if $include; then printf '\n' >&"$headers"; fi
+  if ${include}; then printf '\n' >&"${headers}"; fi
 }
 
 # fail STATUS [MESSAGE]: fail like gh does on an HTTP error.
 fail() {
   local status=$1 message=${2:-Error}
-  status_line "$status" "$message"
-  printf '{"message":"%s","status":"%s"}\n' "$message" "$status"
-  printf 'gh: %s (HTTP %s)\n' "$message" "$status" >&2
+  status_line "${status}" "${message}"
+  printf '{"message":"%s","status":"%s"}\n' "${message}" "${status}"
+  printf 'gh: %s (HTTP %s)\n' "${message}" "${status}" >&2
   exit 1
 }
 
 # graphql_error TYPE MESSAGE: fail like gh does on a GraphQL error.
 graphql_error() {
   local type=$1 message=$2
-  status_line "$OK_STATUS" OK
-  printf '{"data":null,"errors":[{"type":"%s","message":"%s"}]}\n' "$type" "$message"
-  printf 'gh: %s\n' "$message" >&2
+  status_line "${OK_STATUS}" OK
+  printf '{"data":null,"errors":[{"type":"%s","message":"%s"}]}\n' "${type}" "${message}"
+  printf 'gh: %s\n' "${message}" >&2
   exit 1
 }
 
@@ -91,10 +91,10 @@ graphql_error() {
 failure_status() {
   local call="$1 $2" line
   while IFS= read -r line; do
-    if [[ $line == "$call" ]]; then
-      echo "$DEFAULT_FAILURE_STATUS"
+    if [[ ${line} == "${call}" ]]; then
+      echo "${DEFAULT_FAILURE_STATUS}"
       return 0
-    elif [[ $line =~ $FAIL_ON_STATUS_FORM && ${BASH_REMATCH[1]} == "$call" ]]; then
+    elif [[ ${line} =~ ${FAIL_ON_STATUS_FORM} && ${BASH_REMATCH[1]} == "${call}" ]]; then
       echo "${BASH_REMATCH[2]}"
       return 0
     fi
@@ -105,8 +105,8 @@ failure_status() {
 # graphql_errors FILE: fail like gh does on an answer with GraphQL errors.
 graphql_errors() {
   local file=$1
-  status_line "$OK_STATUS" OK
-  cat -- "$file"
+  status_line "${OK_STATUS}" OK
+  cat -- "${file}"
   printf 'gh: GraphQL error\n' >&2
   exit 1
 }
@@ -114,11 +114,11 @@ graphql_errors() {
 # fail_transiently FILE: fail while the count of FILE.transient lasts.
 fail_transiently() {
   local file=$1 count kind
-  [[ -f $file.transient ]] || return 0
-  read -r count kind <"$file.transient"
+  [[ -f ${file}.transient ]] || return 0
+  read -r count kind <"${file}.transient"
   ((count > 0)) || return 0
-  printf '%s %s\n' $((count - 1)) "$kind" >"$file.transient"
-  case $kind in
+  printf '%s %s\n' $((count - 1)) "${kind}" >"${file}.transient"
+  case ${kind} in
     rate-limited) graphql_error RATE_LIMITED "API rate limit exceeded" ;;
     *) fail 504 "Gateway Timeout" ;;
   esac
@@ -127,17 +127,17 @@ fail_transiently() {
 # print_page FILE: print one page of an answer, through --jq when given.
 print_page() {
   local file=$1
-  status_line "$OK_STATUS" OK
-  if [[ -n $jq_filter ]]; then jq -r "$jq_filter" "$file"; else cat -- "$file"; fi
+  status_line "${OK_STATUS}" OK
+  if [[ -n ${jq_filter} ]]; then jq -r "${jq_filter}" "${file}"; else cat -- "${file}"; fi
 }
 
 # answer FILE: print FILE and, with --paginate, its further pages.
 answer() {
   local file=$1 page=2
-  print_page "$file"
-  while $paginate && [[ -f $file.$page ]]; do
+  print_page "${file}"
+  while ${paginate} && [[ -f ${file}.${page} ]]; do
     page_break
-    print_page "$file.$page"
+    print_page "${file}.${page}"
     page=$((page + 1))
   done
 }
@@ -158,46 +158,46 @@ parse() {
     esac
     shift
   done
-  [[ -n $method ]] || method=$(default_method)
+  [[ -n ${method} ]] || method=$(default_method)
 }
 
 # default_method: POST with fields or a body, as gh does, and GET without.
 default_method() {
-  if ((${#fields[@]})) || [[ -n $input ]]; then echo POST; else echo GET; fi
+  if ((${#fields[@]})) || [[ -n ${input} ]]; then echo POST; else echo GET; fi
 }
 
 # open_failure: fail like gh does on a file of --input that cannot be read.
 open_failure() {
-  printf 'open %s: no such file or directory\n' "$input" >&2
+  printf 'open %s: no such file or directory\n' "${input}" >&2
   exit 1
 }
 
 # input_field: the body of --input as the field "--input=BODY".
 input_field() {
   local text
-  text=$(cat -- "$input" 2>/dev/null | jq -Rs .) || open_failure
-  printf -- '--input=%s\n' "$(jq -c "$ONE_VALUE_OR_TEXT" <<<"$text")"
+  text=$(cat -- "${input}" 2>/dev/null | jq -Rs .) || open_failure
+  printf -- '--input=%s\n' "$(jq -c "${ONE_VALUE_OR_TEXT}" <<<"${text}")"
 }
 
 # query_path: the path with the fields as its query string.
 query_path() {
   local separator='?' IFS='&'
-  [[ $path != *'?'* ]] || separator='&'
-  printf '%s%s%s\n' "$path" "$separator" "${fields[*]}"
+  [[ ${path} != *'?'* ]] || separator='&'
+  printf '%s%s%s\n' "${path}" "${separator}" "${fields[*]}"
 }
 
 # take_input: with --input, move the fields into the query string of the
 # path, as gh does, and record the body as the only field.
 take_input() {
-  [[ -n $input ]] || return 0
-  [[ $path != "$GRAPHQL" ]] || usage_error "unsupported: graphql --input"
+  [[ -n ${input} ]] || return 0
+  [[ ${path} != "${GRAPHQL}" ]] || usage_error "unsupported: graphql --input"
   if ((${#fields[@]})); then path=$(query_path); fi
   fields=("$(input_field)")
 }
 
 # record: append the request to $CALLS as "METHOD PATH FIELDS".
 record() {
-  printf '%s %s %s\n' "$method" "$path" "${fields[*]}" >>"$CALLS"
+  printf '%s %s %s\n' "${method}" "${path}" "${fields[*]}" >>"${CALLS}"
 }
 
 # usage_error MESSAGE: exit as gh does on a wrong command line.
@@ -208,19 +208,19 @@ usage_error() {
 
 # graphql_key: the name of the GraphQL request, from its fields.
 graphql_key() {
-  local field key=$GRAPHQL separator='?'
+  local field key=${GRAPHQL} separator='?'
   for field in "${fields[@]}"; do
-    [[ $field != query=* ]] || continue
-    key+=$separator$field separator='&'
+    [[ ${field} != query=* ]] || continue
+    key+=${separator}${field} separator='&'
   done
-  printf '%s\n' "$key"
+  printf '%s\n' "${key}"
 }
 
 # graphql_fields: print the fields other than query, separated by spaces.
 graphql_fields() {
   local key
   key=$(graphql_key)
-  [[ $key == *'?'* ]] || return 0
+  [[ ${key} == *'?'* ]] || return 0
   key=${key#*'?'}
   printf '%s\n' "${key//&/ }"
 }
@@ -228,19 +228,19 @@ graphql_fields() {
 # graphql: answer a GraphQL request.
 graphql() {
   local file
-  printf '%s %s\n' "$GRAPHQL" "$(graphql_fields)" >>"$CALLS"
+  printf '%s %s\n' "${GRAPHQL}" "$(graphql_fields)" >>"${CALLS}"
   file=$(fixture_file "$(graphql_key)")
-  fail_transiently "$file"
-  [[ -f $file ]] || graphql_error NOT_FOUND "Could not resolve to a node."
-  ! grep -q '"errors"' "$file" || graphql_errors "$file"
-  answer "$file"
+  fail_transiently "${file}"
+  [[ -f ${file} ]] || graphql_error NOT_FOUND "Could not resolve to a node."
+  ! grep -q '"errors"' "${file}" || graphql_errors "${file}"
+  answer "${file}"
 }
 
 # fail_if_listed: fail the request if FAIL_ON lists it.
 fail_if_listed() {
   local status
-  if status=$(failure_status "$method" "$path"); then
-    fail "$status"
+  if status=$(failure_status "${method}" "${path}"); then
+    fail "${status}"
   fi
 }
 
@@ -255,7 +255,7 @@ change() {
 # and HTTP 404 otherwise.
 missing() {
   [[ -n ${MISSING_IS_EMPTY-} ]] || fail 404 "Not Found"
-  status_line "$OK_STATUS" OK
+  status_line "${OK_STATUS}" OK
   exit 0
 }
 
@@ -263,12 +263,12 @@ missing() {
 get() {
   local file
   if [[ -n ${LOG_GETS-} ]]; then record; fi
-  file=$(fixture_file "$path")
-  fail_transiently "$file"
+  file=$(fixture_file "${path}")
+  fail_transiently "${file}"
   fail_if_listed
-  [[ -f $file ]] || missing
-  ! grep -q 'HTTP 500' "$file" || fail 500 "Server Error"
-  answer "$file"
+  [[ -f ${file} ]] || missing
+  ! grep -q 'HTTP 500' "${file}" || fail 500 "Server Error"
+  answer "${file}"
 }
 
 # api ARG...: answer gh api ARG...
@@ -279,10 +279,10 @@ api() {
   # Like gh, --silent prints no body, also of an error, but still the headers of
   # -i; messages stay on stderr.
   exec {headers}>&1
-  if $silent; then exec >/dev/null; fi
-  if [[ $path == "$GRAPHQL" ]]; then
+  if ${silent}; then exec >/dev/null; fi
+  if [[ ${path} == "${GRAPHQL}" ]]; then
     graphql
-  elif [[ $method != GET ]]; then
+  elif [[ ${method} != GET ]]; then
     change
   else
     get
@@ -293,7 +293,7 @@ api() {
 # is about: the first argument that is neither a flag nor its value.
 command_name() {
   while (($#)); do
-    if [[ $1 =~ $VALUE_FLAG_FORM ]]; then
+    if [[ $1 =~ ${VALUE_FLAG_FORM} ]]; then
       shift
     elif [[ $1 != -* ]]; then
       printf '%s\n' "$1"
@@ -309,7 +309,7 @@ command_name() {
 reject_format_flags() {
   local arg
   for arg; do
-    [[ ! $arg =~ $FORMAT_FLAG_FORM ]] || usage_error "unsupported flag $arg"
+    [[ ! ${arg} =~ ${FORMAT_FLAG_FORM} ]] || usage_error "unsupported flag ${arg}"
   done
 }
 
@@ -318,24 +318,24 @@ reject_format_flags() {
 variable_get() {
   local name file
   reject_format_flags "$@"
-  if [[ -n ${LOG_GETS-} ]]; then printf 'variable get %s\n' "$*" >>"$CALLS"; fi
+  if [[ -n ${LOG_GETS-} ]]; then printf 'variable get %s\n' "$*" >>"${CALLS}"; fi
   name=$(command_name "$@")
-  file=$(fixture_file "$(variable_key "$name")")
-  [[ -f $file ]] || {
-    printf 'variable %s was not found\n' "$name" >&2
+  file=$(fixture_file "$(variable_key "${name}")")
+  [[ -f ${file} ]] || {
+    printf 'variable %s was not found\n' "${name}" >&2
     exit 1
   }
-  cat -- "$file"
+  cat -- "${file}"
 }
 
 # variable ACTION ARG...: answer gh variable get or set.
 variable() {
   local action=${1-}
   shift || true
-  case $action in
+  case ${action} in
     get) variable_get "$@" ;;
-    set) printf 'variable set %s\n' "$*" >>"$CALLS" ;;
-    *) usage_error "unsupported: variable $action" ;;
+    set) printf 'variable set %s\n' "$*" >>"${CALLS}" ;;
+    *) usage_error "unsupported: variable ${action}" ;;
   esac
 }
 
@@ -344,8 +344,8 @@ variable() {
 secret() {
   local action=${1-}
   shift || true
-  [[ $action == set ]] || usage_error "unsupported: secret $action"
-  printf 'secret set %s\n' "$*" >>"$CALLS"
+  [[ ${action} == set ]] || usage_error "unsupported: secret ${action}"
+  printf 'secret set %s\n' "$*" >>"${CALLS}"
   if reads_stdin "$@" && [[ ! -t 0 ]]; then cat >/dev/null; fi
 }
 
@@ -353,7 +353,7 @@ secret() {
 # without one.
 env_file() {
   while (($#)); do
-    if [[ $1 =~ $ENV_FILE_FLAG_FORM ]]; then
+    if [[ $1 =~ ${ENV_FILE_FLAG_FORM} ]]; then
       printf '%s\n' "${2-}"
       return 0
     elif [[ $1 == --env-file=* ]]; then
@@ -371,21 +371,21 @@ reads_stdin() {
   local file
   ! has_body "$@" || return 1
   file=$(env_file "$@") || return 0
-  [[ $file == - ]]
+  [[ ${file} == - ]]
 }
 
 # has_body ARG...: the arguments give the value with -b or --body.
 has_body() {
   local arg
   for arg; do
-    [[ $arg != -b && $arg != --body && $arg != --body=* ]] || return 0
+    [[ ${arg} != -b && ${arg} != --body && ${arg} != --body=* ]] || return 0
   done
   return 1
 }
 
 command=${1-}
 shift || true
-case $command in
-  api | variable | secret) "$command" "$@" ;;
-  *) usage_error "unsupported: $command $*" ;;
+case ${command} in
+  api | variable | secret) "${command}" "$@" ;;
+  *) usage_error "unsupported: ${command} $*" ;;
 esac
