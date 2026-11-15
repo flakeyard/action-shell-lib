@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/flakeyard/action-shell-lib/compare/v0.3.1...v0.3.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* keep the exit codes of command substitutions and of functions under set -e ([#61](https://github.com/flakeyard/action-shell-lib/issues/61)) ([f26d1e4](https://github.com/flakeyard/action-shell-lib/commit/f26d1e4fa67d9579f57356c0157f39622c097703))
+
 ## [0.3.1](https://github.com/flakeyard/action-shell-lib/compare/v0.3.0...v0.3.1) (2026-11-12)
 
 
