@@ -8,7 +8,8 @@
 
 # have_yq: mikefarah yq v4 is installed.
 have_yq() {
-  command -v yq >/dev/null && [[ $(yq --version 2>&1) == *mikefarah* ]]
+  local version
+  command -v yq >/dev/null && version=$(yq --version 2>&1) && [[ ${version} == *mikefarah* ]]
 }
 
 # require_yq FILE: true when yq is installed; otherwise fails a test of FILE.

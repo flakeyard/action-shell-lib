@@ -70,14 +70,15 @@ check_action_steps() {
 
 # library_uses: print every uses: of the library in the files of code_root
 # where GitHub reads them, the action and the workflows and actions under
-# .github, one per line.
+# .github, one per line; exits 2 when it cannot read one.
 library_uses() (
   cd -- "${code_root}" || exit 2
   shopt -s globstar nullglob
   for file in action.y{a,}ml .github/workflows/*.y{a,}ml .github/actions/**/action.y{a,}ml; do
     [[ -f ${file} ]] || continue
-    load_yaml "${file}" | jq -r --arg form "${LIBRARY_ANY_USES_FORM}" \
-      '.. | .uses? // empty | strings | select(test($form; "i"))'
+    json=$(load_yaml "${file}") || exit 2
+    jq -r --arg form "${LIBRARY_ANY_USES_FORM}" \
+      '.. | .uses? // empty | strings | select(test($form; "i"))' <<<"${json}" || exit 2
   done
 )
 
@@ -88,7 +89,8 @@ check_library_pins() {
   setup
   current="action: every use of the library names one commit"
   # Two or more lines, or none, do not match the form.
-  uses=$(library_uses | sort -u)
+  uses=$(library_uses) || report "cannot read the uses: of ${code_root}"
+  uses=$(sort -u <<<"${uses}")
   [[ ${uses} =~ ${LIBRARY_USES_FORM} ]] || report "uses: ${uses//$'\n'/, }"
   finish
 }

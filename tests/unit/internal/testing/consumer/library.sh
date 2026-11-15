@@ -66,12 +66,13 @@ readonly RUNNER_EXEC_LINE='exec /usr/bin/env -i "${vars[@]}" /usr/bin/bash -p "$
 # records its calls in $work/env-ran, in a directory with a space first on
 # PATH, and the step probe in $work/step, which prints its bash.
 test_interpreters_setup() {
-  local bin
+  local bin env
   setup
   bin="${work}/test bin"
   mkdir "${bin}" "${work}/step"
   ln -s -- "${BASH}" "${bin}/bash"
-  printf '#!/bin/sh\necho env >>%q\nexec %q "$@"\n' "${work}/env-ran" "$(type -P env)" >"${bin}/env"
+  env=$(type -P env) || exit 2
+  printf '#!/bin/sh\necho env >>%q\nexec %q "$@"\n' "${work}/env-ran" "${env}" >"${bin}/env"
   chmod +x "${bin}/env"
   printf '%s\n' 'printf "%s\n" "$BASH"' >"${work}/step/probe.sh"
   apply PATH="${bin}:${TESTING_BIN}:${HOST_PATH}" SHELL_LIB="${work}/copy"

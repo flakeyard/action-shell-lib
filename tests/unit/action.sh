@@ -107,8 +107,9 @@ if require_yq action.yml; then
 
   setup
   current="action: the steps run on complementary runners, with every status"
-  check_conditions "$(jq -r '.runs.steps[0].if' <<<"${action}")" \
-    "$(jq -r '.runs.steps[1].if' <<<"${action}")"
+  path_if=$(jq -r '.runs.steps[0].if' <<<"${action}") || report "cannot read the condition of the path step"
+  reject_if=$(jq -r '.runs.steps[1].if' <<<"${action}") || report "cannot read the condition of the rejection step"
+  check_conditions "${path_if}" "${reject_if}"
   finish
 
   setup

@@ -138,8 +138,9 @@ finish
 # hostile_job_setup: step_setup with them in hostile_job.
 hostile_job_setup() {
   step_setup
-  mapfile -t hostile_job < <(hostile_environment "${work}/ran")
-  local kind
+  local kind listed
+  listed=$(hostile_environment "${work}/ran") || exit 2
+  mapfile -t hostile_job <<<"${listed}"
   for kind in error warning notice; do
     hostile_job+=("_report_count_${kind}=a[\$(touch ${work}/ran)]" "_report_held_${kind}=::${kind}::forged")
   done

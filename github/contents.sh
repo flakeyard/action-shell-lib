@@ -35,13 +35,15 @@ _contents_path() {
 # any other error, such as a directory, a file too large for the API or a PATH
 # with an empty, "." or ".." segment, after printing it on stderr.
 file_at() {
-  local path=$1 ref=$2 body status=0
+  local path=$1 ref=$2 api_path body status=0 content
   _contents_check_path "${path}" || return 1
-  body=$(api_request GET "$(_contents_path "${path}" "${ref}")") || status=$?
+  api_path=$(_contents_path "${path}" "${ref}") || return 1
+  body=$(api_request GET "${api_path}") || status=$?
   ((status == 0)) || return "${status}"
   jq -e '.type == "file" and .encoding == "base64"' <<<"${body}" >/dev/null || {
     printf '%s: not a file of at most 1 MB\n' "${path}" >&2
     return 1
   }
-  jq -r .content <<<"${body}" | base64 -d
+  content=$(jq -r .content <<<"${body}") || return 1
+  base64 -d <<<"${content}"
 }

@@ -49,8 +49,9 @@ _report_command() {
   local kind=$1 message=$2 file=${3-} title=${4-} properties=() IFS=,
   [[ -z ${file} ]] || properties+=("file=$(escape_property "${file}")")
   [[ -z ${title} ]] || properties+=("title=$(escape_property "${title}")")
-  local joined=${properties[*]}
-  printf '::%s%s::%s\n' "${kind}" "${joined:+ ${joined}}" "$(escape_command "${message}")"
+  local joined=${properties[*]} escaped
+  escaped=$(escape_command "${message}") || return
+  printf '::%s%s::%s\n' "${kind}" "${joined:+ ${joined}}" "${escaped}"
 }
 
 # _report_get NAME: print the state NAME of this file, such as count_error;
@@ -76,13 +77,15 @@ _report_count() {
 # _report_annotate KIND MESSAGE [FILE [TITLE]]: write or hold an annotation of
 # KIND, within ANNOTATIONS_PER_KIND.
 _report_annotate() {
-  local kind=$1 count
-  count=$(($(_report_count "${kind}") + 1))
+  local kind=$1 count held
+  count=$(_report_count "${kind}") || return
+  count=$((count + 1))
   _report_set "count_${kind}" "${count}"
   if ((count < ANNOTATIONS_PER_KIND)); then
     _report_command "$@"
   elif ((count == ANNOTATIONS_PER_KIND)); then
-    _report_set "held_${kind}" "$(_report_command "$@")"
+    held=$(_report_command "$@") || return
+    _report_set "held_${kind}" "${held}"
   fi
 }
 
@@ -105,15 +108,19 @@ problem() {
 
 # has_problems: true when problem has reported an error.
 has_problems() {
-  [[ $(_report_get problems) == 1 ]]
+  local problems
+  problems=$(_report_get problems) || return
+  [[ ${problems} == 1 ]]
 }
 
 # _report_flush_kind KIND [WHERE]: the last annotation of KIND, once.
 _report_flush_kind() {
-  local kind=$1 where=${2-} more
-  more=$(($(_report_count "${kind}") - ANNOTATIONS_PER_KIND + 1))
+  local kind=$1 where=${2-} more flushed
+  more=$(_report_count "${kind}") || return
+  more=$((more - ANNOTATIONS_PER_KIND + 1))
   ((more >= 1)) || return 0
-  [[ -z $(_report_get "flushed_${kind}") ]] || return 0
+  flushed=$(_report_get "flushed_${kind}") || return
+  [[ -z ${flushed} ]] || return 0
   _report_set "flushed_${kind}" 1
   if ((more == 1)); then
     _report_get "held_${kind}"

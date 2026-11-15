@@ -14,8 +14,9 @@ fixtures_dir() {
 
 # fixture_file PATH: print the file that answers the request PATH.
 fixture_file() {
-  local path=$1
-  printf '%s\n' "$(fixtures_dir)/${path//[\/?&=]/_}"
+  local path=$1 dir
+  dir=$(fixtures_dir) || return
+  printf '%s\n' "${dir}/${path//[\/?&=]/_}"
 }
 
 # fixture PATH BODY: answer the request PATH with BODY. A BODY that contains
@@ -45,7 +46,8 @@ transient_failures() {
 # 60 characters like the API does.
 file_fixture() {
   local repository=$1 path=$2 ref=$3 content=$4 encoded
-  encoded=$(printf '%s' "${content}" | base64 -w 60 | paste -sd '#' | sed 's/#/\\n/g')
+  encoded=$(printf '%s' "${content}" | base64 -w 60) || return
+  encoded=${encoded//$'\n'/\\n}
   fixture "repos/${repository}/contents/${path}?ref=${ref}" \
     "{\"type\":\"file\",\"encoding\":\"base64\",\"content\":\"${encoded}\"}"
 }
@@ -58,8 +60,9 @@ variable_key() {
 
 # variable_fixture NAME VALUE: answer gh variable get NAME with VALUE.
 variable_fixture() {
-  local name=$1 value=$2
-  fixture "$(variable_key "${name}")" "${value}"
+  local name=$1 value=$2 key
+  key=$(variable_key "${name}") || return
+  fixture "${key}" "${value}"
 }
 
 # fixed_time TIME: the time that the date stub takes as now, such as

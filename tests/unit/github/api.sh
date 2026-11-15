@@ -215,7 +215,9 @@ CASES
 # requests_as_usual: a GET with two transient failures, a POST and the checks
 # of file_at and forms.sh behave as without the hostile environment.
 requests_as_usual() {
-  [[ $(api_get repos/o/r/thing) == '{"a":1}' ]] || return 1
+  local body
+  body=$(api_get repos/o/r/thing) || return 1
+  [[ ${body} == '{"a":1}' ]] || return 1
   api_request POST repos/o/r/statuses/aaa -f state=success >/dev/null || return 1
   ! file_at a/../b aaa 2>/dev/null || return 1
   is_repository_list '["o/r"]' && ! is_repository_list '["o/.."]'
@@ -224,7 +226,8 @@ requests_as_usual() {
 setup
 fixture repos/o/r/thing '{"a":1}'
 transient_failures repos/o/r/thing 2
-mapfile -t hostile < <(hostile_environment "${work}/ran")
+hostile_listed=$(hostile_environment "${work}/ran") || exit 2
+mapfile -t hostile <<<"${hostile_listed}"
 apply "${hostile[@]}" REPO=o/r
 run_lib "api: the environment cannot run code or change the requests" ok \
   "github/contents.sh github/forms.sh" requests_as_usual

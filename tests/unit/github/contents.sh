@@ -39,6 +39,25 @@ apply REPO=o/r
 run_lib "contents: a missing file is NOT_FOUND" ok "${lib}" missing_is_not_found
 finish
 
+# jq_failure_is_error: file_at returns 1, not NOT_FOUND, when jq fails.
+jq_failure_is_error() {
+  local status=0
+  file_at a.json aaa 2>/dev/null || status=$?
+  ((status == 1))
+}
+
+# A jq that fails cannot build the path of the request: file_at fails before
+# it asks the API.
+setup
+mkdir "${work}/failing"
+printf '#!/bin/sh\nexit 3\n' >"${work}/failing/jq"
+chmod +x "${work}/failing/jq"
+apply REPO=o/r LOG_GETS=1 PATH="${work}/failing:${TESTING_BIN}:${HOST_PATH}"
+file_fixture o/r a.json aaa "x"
+run_lib "contents: a failure of jq is an error, not NOT_FOUND" ok "${lib}" jq_failure_is_error
+expect no-calls
+finish
+
 setup
 apply REPO=o/r
 fixture "repos/o/r/contents/nix?ref=aaa" '[{"type":"file","name":"a.nix"}]'

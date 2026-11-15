@@ -16,8 +16,10 @@ workflow_fixture() {
 # of $work/repo, as a suite of its own; prints its result and fails when it
 # fails.
 workflow_checks() {
+  local json
   failed=0 passed=0 code_root=${work}/repo
-  workflow_check "$(load_workflow test.yaml)" "workflow: probe" "$@"
+  json=$(load_workflow test.yaml) || return
+  workflow_check "${json}" "workflow: probe" "$@"
   conclude
 }
 

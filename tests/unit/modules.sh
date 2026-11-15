@@ -25,16 +25,18 @@ writable_variables_since() {
 # sources_cleanly MODULE: source MODULE twice in an empty directory, and
 # check the shell before and after.
 sources_cleanly() {
-  local module=$1 state variables writable
-  cd -- "$(mktemp -d)" || return 1
+  local module=$1 dir state after variables writable files
+  dir=$(mktemp -d) && cd -- "${dir}" || return 1
   state=$(shell_state)
   variables=$(compgen -v)
   # shellcheck source=/dev/null
   source "${code_root}/${module}" && source "${code_root}/${module}" || return 1
-  [[ $(shell_state) == "${state}" ]] || echo "${module} changed the shell"
+  after=$(shell_state)
+  [[ ${after} == "${state}" ]] || echo "${module} changed the shell"
   writable=$(writable_variables_since "${variables}")
   [[ -z ${writable} ]] || echo "${module} added variables: ${writable}"
-  [[ -z $(ls -A) ]] || echo "${module} wrote files"
+  files=$(ls -A) || return 1
+  [[ -z ${files} ]] || echo "${module} wrote files"
 }
 
 # The script of the library, which is run, not sourced.
@@ -57,6 +59,7 @@ defines_functions() {
   ((after > before))
 }
 
+library_listed=$(library_modules) || exit 2
 while IFS= read -r module; do
   [[ ${module} != "${RUN_SCRIPT}" ]] || continue
   setup
@@ -70,4 +73,4 @@ while IFS= read -r module; do
   run_lib "modules: ${module} ignores variables of the environment" ok "" \
     defines_functions "${module}"
   finish
-done < <(library_modules)
+done <<<"${library_listed}"

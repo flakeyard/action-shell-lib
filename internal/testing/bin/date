@@ -27,15 +27,6 @@ system_date() {
   return 1
 }
 
-# gives_time ARG...: one of ARG gives the time.
-gives_time() {
-  local arg
-  for arg; do
-    [[ ! ${arg} =~ ${TIME_ARGUMENT_FORM} ]] || return 0
-  done
-  return 1
-}
-
 # fixed_now: print the time that the test fixed.
 fixed_now() {
   local file
@@ -48,8 +39,8 @@ fixed_now() {
 }
 
 date=$(system_date)
-if gives_time "$@"; then
-  exec "${date}" "$@"
-fi
+for arg; do
+  if [[ ${arg} =~ ${TIME_ARGUMENT_FORM} ]]; then exec "${date}" "$@"; fi
+done
 now=$(fixed_now)
 exec "${date}" -d "${now}" "$@"

@@ -7,10 +7,11 @@
 # outcome NAME EXPECTED STATUS: start test NAME, which exited with STATUS;
 # EXPECTED is ok or fail.
 outcome() {
-  local name=$1 expected=$2 status=$3
+  local name=$1 expected=$2 status=$3 output
   current=${name}
   if [[ ${expected} == fail && ${status} -eq 0 ]] || [[ ${expected} == ok && ${status} -ne 0 ]]; then
-    report "expected ${expected}, exit status ${status}: $(cat -- "${work}/stdout" "${work}/stderr")"
+    output=$(cat -- "${work}/stdout" "${work}/stderr")
+    report "expected ${expected}, exit status ${status}: ${output}"
   fi
 }
 
@@ -66,26 +67,42 @@ expect_output() {
 expect_count() {
   local kind=$1 expected=$2 count
   count=$(grep -c "^::${kind}[ :]" "${work}/stdout")
-  [[ ${count} == "${expected}" ]] || report "${count} ${kind}s, expected ${expected}: $(cat -- "${work}/stdout")"
+  [[ ${count} == "${expected}" ]] || report "${count} ${kind}s, expected ${expected}: $(<"${work}/stdout")"
 }
 
 # expect KIND [VALUE...]: check the last run: an output, its stdout, its
 # messages, the calls and sleeps of the stubs or the job summary.
 expect() {
+  local found
   [[ -n ${current} ]] || return 0
   case $1 in
     output) expect_output "$2" "$3" ;;
     stdout) [[ $(<"${work}/stdout") == "$2" ]] || report "stdout is '$(<"${work}/stdout")', expected '$2'" ;;
-    message) grep -qF -- "$2" "${work}/stdout" "${work}/stderr" || report "no message '$2' in: $(cat -- "${work}/stdout" "${work}/stderr")" ;;
+    message)
+      grep -qF -- "$2" "${work}/stdout" "${work}/stderr" && return 0
+      found=$(cat -- "${work}/stdout" "${work}/stderr")
+      report "no message '$2' in: ${found}"
+      ;;
     no-message) ! grep -qF -- "$2" "${work}/stdout" "${work}/stderr" || report "unexpected message '$2'" ;;
     errors) expect_count error "$2" ;;
     warnings) expect_count warning "$2" ;;
     notices) expect_count notice "$2" ;;
-    call) grep -qF -- "$2" "${work}/calls" || report "no call '$2' in: $(paste -sd';' "${work}/calls")" ;;
+    call)
+      grep -qF -- "$2" "${work}/calls" && return 0
+      found=$(paste -sd';' "${work}/calls")
+      report "no call '$2' in: ${found}"
+      ;;
     no-call) ! grep -qF -- "$2" "${work}/calls" || report "unexpected call '$2'" ;;
-    no-calls) [[ ! -s ${work}/calls ]] || report "unexpected calls: $(paste -sd';' "${work}/calls")" ;;
-    sleeps) [[ $(paste -sd' ' "${work}/sleeps") == "$2" ]] || report "slept '$(paste -sd' ' "${work}/sleeps")', expected '$2'" ;;
-    summary) grep -qF -- "$2" "${work}/summary" || report "no '$2' in the summary: $(cat -- "${work}/summary")" ;;
+    no-calls)
+      [[ -s ${work}/calls ]] || return 0
+      found=$(paste -sd';' "${work}/calls")
+      report "unexpected calls: ${found}"
+      ;;
+    sleeps)
+      found=$(paste -sd' ' "${work}/sleeps")
+      [[ ${found} == "$2" ]] || report "slept '${found}', expected '$2'"
+      ;;
+    summary) grep -qF -- "$2" "${work}/summary" || report "no '$2' in the summary: $(<"${work}/summary")" ;;
     *)
       echo "expect: unknown kind $1" >&2
       exit 2

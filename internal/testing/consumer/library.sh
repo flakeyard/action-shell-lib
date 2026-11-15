@@ -19,12 +19,12 @@ readonly RUNNER_EXEC_LINE_FORM='^exec /usr/bin/env -i (.*) /usr/bin/bash -p (.*)
 # since a host or the Nix sandbox may have no /usr/bin/bash. Exits 2 when it
 # cannot, since the steps would then run the tools of the host.
 copy_library() {
-  local dir=$1 system_path=$2
+  local dir=$1 system_path=$2 copied_path
   [[ ! -e ${dir} ]] || copy_error "${dir} exists"
   { cp -R -- "${TESTED_LIBRARY}" "${dir}" && chmod -R u+w -- "${dir}"; } \
     || copy_error "cannot copy ${TESTED_LIBRARY}"
   rewrite_lines "${dir}/env.sh" "${SYSTEM_PATH_LINE_FORM}" system_path_line "${system_path}"
-  [[ $(system_path_of "${dir}/env.sh") == "${system_path}" ]] \
+  copied_path=$(system_path_of "${dir}/env.sh") && [[ ${copied_path} == "${system_path}" ]] \
     || copy_error "cannot set SYSTEM_PATH in ${dir}/env.sh"
   use_test_interpreters "${dir}/run-step.sh"
 }

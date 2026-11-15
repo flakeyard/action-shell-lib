@@ -35,12 +35,16 @@ library_modules() (
 # ACTION, an action.yml, in run_lines; exits 2 unless exactly one step is
 # STEP.
 read_run_line() {
-  local action=$1 step=$2
+  local action=$1 step=$2 json
   [[ ! -v run_lines["${action} ${step}"] ]] || return 0
-  run_lines["${action} ${step}"]=$(yq -o=json . "${action}" | jq -er --arg form "${STEP_RUN_FORM}" \
+  json=$(yq -o=json . "${action}") || {
+    printf 'run_step: cannot read %s\n' "${action}" >&2
+    exit 2
+  }
+  run_lines["${action} ${step}"]=$(jq -er --arg form "${STEP_RUN_FORM}" \
     --arg step "${step}" '[.runs.steps[].run // empty | match($form)
     | select(.captures[0].string == $step) | .captures[1].string]
-    | if length == 1 then .[0] else error end') || {
+    | if length == 1 then .[0] else error end' <<<"${json}") || {
     printf 'run_step: no one step %s in %s\n' "${step}" "${action}" >&2
     exit 2
   }
@@ -68,9 +72,11 @@ run_step() {
 # library in STEP_DIR; and DIR/bash-env for BASH_ENV. Each appends its path to
 # MARKER.
 hostile_modules() {
-  local dir=$1 marker=$2 step_dir=$3 module modules=()
-  mapfile -t modules < <(find "${code_root}" -name .git -prune -o -type f -name '*.sh' -print)
-  while IFS= read -r module; do modules+=("${step_dir}/${module}"); done < <(library_modules)
+  local dir=$1 marker=$2 step_dir=$3 module modules=() listed
+  listed=$(find "${code_root}" -name .git -prune -o -type f -name '*.sh' -print) || exit 2
+  mapfile -t modules <<<"${listed}"
+  listed=$(library_modules) || exit 2
+  while IFS= read -r module; do modules+=("${step_dir}/${module}"); done <<<"${listed}"
   for module in "${modules[@]}" /bash-env; do
     mkdir -p -- "$(dirname -- "${dir}${module}")"
     printf 'echo %q >>%q\n' "${module}" "${marker}" >"${dir}${module}"
@@ -96,10 +102,13 @@ hostile_variables() {
 # the step. The test fails when any of them ran.
 run_hostile() {
   local name=$1 expected=$2 action_dir=$3 step=$4 dir=${work}/hostile marker=${work}/hostile-ran
-  local step_dir=${action_dir}/scripts/step hostile=()
+  local step_dir=${action_dir}/scripts/step hostile=() listed
   shift 4
   hostile_modules "${dir}" "${marker}" "${step_dir}"
-  mapfile -t hostile < <(hostile_variables "${dir}" "${marker}" "${step_dir}/${step}.sh")
+  listed=$(hostile_variables "${dir}" "${marker}" "${step_dir}/${step}.sh") || exit 2
+  mapfile -t hostile <<<"${listed}"
   run_step "${name}" "${expected}" "${action_dir}" "${step}" "$@" "${hostile[@]}"
-  [[ -z ${current} || ! -e ${marker} ]] || report "the environment ran code: $(paste -sd' ' "${marker}")"
+  [[ -n ${current} && -e ${marker} ]] || return 0
+  listed=$(paste -sd' ' "${marker}")
+  report "the environment ran code: ${listed}"
 }

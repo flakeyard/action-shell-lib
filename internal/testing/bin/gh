@@ -35,6 +35,7 @@
 # secret on stdin, also of "--env-file -", is read and not recorded.
 # shellcheck source-path=SCRIPTDIR
 set -euo pipefail
+shopt -s inherit_errexit
 # shellcheck source=../fixtures.sh
 source "${BASH_SOURCE[0]%/*}/../fixtures.sh"
 
@@ -87,7 +88,7 @@ graphql_error() {
 }
 
 # failure_status METHOD PATH: print the HTTP status that FAIL_ON gives the
-# call; fails when the call succeeds.
+# call; prints nothing when the call succeeds.
 failure_status() {
   local call="$1 $2" line
   while IFS= read -r line; do
@@ -99,7 +100,6 @@ failure_status() {
       return 0
     fi
   done <<<"${FAIL_ON:-}"
-  return 1
 }
 
 # graphql_errors FILE: fail like gh does on an answer with GraphQL errors.
@@ -174,9 +174,10 @@ open_failure() {
 
 # input_field: the body of --input as the field "--input=BODY".
 input_field() {
-  local text
+  local text body
   text=$(cat -- "${input}" 2>/dev/null | jq -Rs .) || open_failure
-  printf -- '--input=%s\n' "$(jq -c "${ONE_VALUE_OR_TEXT}" <<<"${text}")"
+  body=$(jq -c "${ONE_VALUE_OR_TEXT}" <<<"${text}")
+  printf -- '--input=%s\n' "${body}"
 }
 
 # query_path: the path with the fields as its query string.
@@ -227,9 +228,11 @@ graphql_fields() {
 
 # graphql: answer a GraphQL request.
 graphql() {
-  local file
-  printf '%s %s\n' "${GRAPHQL}" "$(graphql_fields)" >>"${CALLS}"
-  file=$(fixture_file "$(graphql_key)")
+  local file key fields_text
+  fields_text=$(graphql_fields)
+  printf '%s %s\n' "${GRAPHQL}" "${fields_text}" >>"${CALLS}"
+  key=$(graphql_key)
+  file=$(fixture_file "${key}")
   fail_transiently "${file}"
   [[ -f ${file} ]] || graphql_error NOT_FOUND "Could not resolve to a node."
   ! grep -q '"errors"' "${file}" || graphql_errors "${file}"
@@ -239,9 +242,8 @@ graphql() {
 # fail_if_listed: fail the request if FAIL_ON lists it.
 fail_if_listed() {
   local status
-  if status=$(failure_status "${method}" "${path}"); then
-    fail "${status}"
-  fi
+  status=$(failure_status "${method}" "${path}")
+  [[ -z ${status} ]] || fail "${status}"
 }
 
 # change: record a request that changes something, and fail it if FAIL_ON
@@ -316,11 +318,12 @@ reject_format_flags() {
 # variable_get ARG...: print the variable of gh variable get ARG..., or fail
 # like gh does without one.
 variable_get() {
-  local name file
+  local name key file
   reject_format_flags "$@"
   if [[ -n ${LOG_GETS-} ]]; then printf 'variable get %s\n' "$*" >>"${CALLS}"; fi
   name=$(command_name "$@")
-  file=$(fixture_file "$(variable_key "${name}")")
+  key=$(variable_key "${name}")
+  file=$(fixture_file "${key}")
   [[ -f ${file} ]] || {
     printf 'variable %s was not found\n' "${name}" >&2
     exit 1
@@ -346,41 +349,28 @@ secret() {
   shift || true
   [[ ${action} == set ]] || usage_error "unsupported: secret ${action}"
   printf 'secret set %s\n' "$*" >>"${CALLS}"
-  if reads_stdin "$@" && [[ ! -t 0 ]]; then cat >/dev/null; fi
+  drop_stdin_value "$@"
 }
 
-# env_file ARG...: print the file that -f or --env-file of ARG... names; fails
-# without one.
-env_file() {
-  while (($#)); do
-    if [[ $1 =~ ${ENV_FILE_FLAG_FORM} ]]; then
-      printf '%s\n' "${2-}"
-      return 0
-    elif [[ $1 == --env-file=* ]]; then
-      printf '%s\n' "${1#*=}"
-      return 0
-    fi
-    shift
-  done
-  return 1
-}
-
-# reads_stdin ARG...: gh secret set ARG... reads the value from stdin: without
-# --body, and without --env-file or with "--env-file -".
-reads_stdin() {
-  local file
-  ! has_body "$@" || return 1
-  file=$(env_file "$@") || return 0
-  [[ ${file} == - ]]
-}
-
-# has_body ARG...: the arguments give the value with -b or --body.
-has_body() {
-  local arg
+# drop_stdin_value ARG...: read and drop the value of gh secret set ARG...
+# when it comes from stdin and stdin is not a terminal: without -b or --body,
+# and without -f or --env-file or with "--env-file -", the first one given.
+drop_stdin_value() {
+  local arg file=-
   for arg; do
     [[ ${arg} != -b && ${arg} != --body && ${arg} != --body=* ]] || return 0
   done
-  return 1
+  while (($#)); do
+    if [[ $1 =~ ${ENV_FILE_FLAG_FORM} ]]; then
+      file=${2-}
+      break
+    elif [[ $1 == --env-file=* ]]; then
+      file=${1#*=}
+      break
+    fi
+    shift
+  done
+  if [[ ${file} == - && ! -t 0 ]]; then cat >/dev/null; fi
 }
 
 command=${1-}
