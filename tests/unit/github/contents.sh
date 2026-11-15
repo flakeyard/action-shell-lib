@@ -1,5 +1,6 @@
 # shellcheck shell=bash
 # Tests of github/contents.sh.
+# shellcheck disable=SC2154 # work comes from setup.
 
 lib=github/contents.sh
 

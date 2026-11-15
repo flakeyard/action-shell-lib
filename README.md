@@ -223,11 +223,14 @@ The repository checks itself with [`test.yaml`](.github/workflows/test.yaml),
 which calls [workflow-check][workflow-check] after its own jobs. The root
 [`flake.nix`](flake.nix) only imports atoms ([FY-0038][fy-0038]):
 [atom-workflows][atom-workflows] lints the workflows and `action.yml` with
-actionlint and zizmor (`checks.workflows`). workflow-check checks `flake.lock`,
-builds the checks of the flake, checks the pull request title, `renovate.json`
-and the release behind its preset tag, and reports `check / required`. Before a
-pull request, run `nix flake check`, shellcheck, shfmt, prettier, markdownlint,
-typos and `reuse lint`.
+actionlint and zizmor (`checks.workflows`). [atom-nix][atom-nix] lints the Nix
+files with statix, deadnix and its hook of relative paths (`checks.nix`),
+[atom-shell][atom-shell] lints the shell scripts with shellcheck
+(`checks.shell`), and treefmt checks their formatting with nixfmt and shfmt
+(`checks.treefmt`). workflow-check checks `flake.lock`, builds the checks of the
+flake, checks the pull request title, `renovate.json` and the release behind its
+preset tag, and reports `check / required`. Before a pull request, run
+`nix flake check`, prettier, markdownlint, typos and `reuse lint`.
 
 [`scorecard.yaml`](.github/workflows/scorecard.yaml) runs OpenSSF Scorecard with
 [workflow-scorecard][workflow-scorecard]. The repository releases itself with
@@ -250,8 +253,8 @@ of the CI runs on real runners after the action. CI runs the unit tests with the
 Following [FY-0022][fy-0022], some checks of this repository are not released
 yet. Until they are:
 
-- shellcheck, shfmt, prettier, markdownlint, typos and REUSE run locally before
-  every pull request; the atoms will provide them.
+- prettier, markdownlint, typos and REUSE run locally before every pull request;
+  the atoms will provide them.
 - The first release of this action runs on a workflow-release that does not use
   it yet; workflow-release and action-setup-nix adopt the library after that
   release ([FY-0035][fy-0035]).
@@ -261,6 +264,8 @@ yet. Until they are:
 [MIT](LICENSE).
 
 [adr-0001]: docs/adr/records/0001-shell-library.md
+[atom-nix]: https://github.com/flakeyard/atom-nix
+[atom-shell]: https://github.com/flakeyard/atom-shell
 [atom-workflows]: https://github.com/flakeyard/atom-workflows
 [workflow-check]: https://github.com/flakeyard/workflow-check
 [workflow-release]: https://github.com/flakeyard/workflow-release
